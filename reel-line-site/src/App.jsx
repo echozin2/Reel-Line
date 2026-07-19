@@ -223,6 +223,24 @@ export default function App() {
     thumbnail: !!thumbBrief,
   };
 
+  // Auto-generate the script the moment a concept is picked (if it hasn't
+  // been generated yet), and auto-generate visual prompts the moment a
+  // script exists — no extra click needed to kick each stage off. Manual
+  // "Regenerate" buttons still work normally afterward.
+  useEffect(() => {
+    if (activeIdx === 1 && selectedConcept && !script && !loadingScript) {
+      genScript();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIdx, selectedConcept]);
+
+  useEffect(() => {
+    if (activeIdx === 2 && script && !visuals && !loadingVisuals) {
+      genVisuals();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIdx, script]);
+
   async function genRandomNiche(andRun) {
     setLoadingNiche(true);
     setErrConcepts("");
@@ -418,9 +436,10 @@ export default function App() {
       const transitionTime = Math.min(0.5, perImage * 0.3);
 
       const canvas = canvasRef.current;
-      const size = 1024;
-      canvas.width = size;
-      canvas.height = size;
+      const cw = 1024;
+      const ch = 1536; // portrait — matches the 9:16-ish Shorts/TikTok images
+      canvas.width = cw;
+      canvas.height = ch;
       const ctx = canvas.getContext("2d");
 
       let audioStream;
@@ -460,15 +479,19 @@ export default function App() {
         const img = imgs[idx];
         const nextImg = imgs[idx + 1];
 
-        ctx.clearRect(0, 0, size, size);
+        ctx.clearRect(0, 0, cw, ch);
 
         const drawImg = (image, alpha) => {
           const zoom = 1 + 0.08 * (localT / perImage);
+          // "Cover" fit: scale so the image fills the portrait canvas with
+          // no letterboxing, cropping the longer dimension as needed.
+          const baseScale = Math.max(cw / image.width, ch / image.height);
+          const scale = baseScale * zoom;
+          const w = image.width * scale;
+          const h = image.height * scale;
           ctx.save();
           ctx.globalAlpha = alpha;
-          const w = size * zoom;
-          const h = size * zoom;
-          ctx.drawImage(image, (size - w) / 2, (size - h) / 2, w, h);
+          ctx.drawImage(image, (cw - w) / 2, (ch - h) / 2, w, h);
           ctx.restore();
         };
 

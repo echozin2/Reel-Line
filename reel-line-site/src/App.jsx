@@ -173,6 +173,8 @@ export default function App() {
   const [activeIdx, setActiveIdx] = useState(0);
 
   const [niche, setNiche] = useState("");
+  const [channelName, setChannelName] = useState("FORM FORGE");
+  const [channelTagline, setChannelTagline] = useState("Move. Train. Improve.");
   const [angle, setAngle] = useState("");
   const [loadingNiche, setLoadingNiche] = useState(false);
   const [contentStyle, setContentStyle] = useState("story"); // "story" | "research"
@@ -291,9 +293,15 @@ export default function App() {
     setLoadingScript(true);
     setErrScript("");
     try {
+      const introInstruction = channelName.trim()
+        ? `The very first beat of the script must be this channel intro, spoken close to verbatim: "Hello, this is ${channelName.trim()}${channelTagline.trim() ? "... " + channelTagline.trim() : "."}" Pair it with a [SCENE: ...] cue for a bold logo/title-card reveal moment (no readable on-image text needed — the words are spoken and captioned, not drawn on screen). This intro is one of the 8-10 total scene cues, not extra. Immediately after it, cut straight into the hook that delivers on the title's promise — no filler between the intro and the hook.`
+        : `Start directly with the hook — no channel intro.`;
+      const outroInstruction = channelTagline.trim()
+        ? `The script's very last line must be close to verbatim: "Well, that's it — and remember... ${channelTagline.trim().toUpperCase()}... catch you next time!" (keep that rhythm and structure; light wording tweaks are fine, but the tagline shout and "catch you next time" close must stay).`
+        : `Close with a short, natural sign-off line specific to this video's topic.`;
       const sys = contentStyle === "research"
-        ? `You write scripts for faceless AI-fitness YouTube videos. You MUST call the web_search tool at least twice before writing the script — do this even if you're already confident, because the goal is real, checkable sources, not just what you already know. Search for credible sources on the specific claims this script needs — NOT invented studies, NOT fabricated statistics, NOT a fake personal "I did this" narrative. Explain the real mechanism behind each claim (e.g. how progressive overload, hip-hinge mechanics, or EPOC actually work) in plain language, based on what you found. If search doesn't turn up something solid, state the general textbook-level finding instead of inventing specifics. The title and thumbnail are already locked — the script's only job is to deliver on that exact promise, starting with a hook in the first 10 seconds. Every 15-25 words, insert a bracketed visual cue like [SCENE: description of what's on screen] so an editor can generate matching AI visuals later. Write 550-750 words. After searching, output ONLY the final script as plain text — no markdown headers, no search narration, no commentary.`
-        : `You write scripts for faceless AI-fitness YouTube videos. The title and thumbnail are already locked — the script's only job is to deliver on that exact promise, starting with a hook in the first 10 seconds. Every 15-25 words, insert a bracketed visual cue like [SCENE: description of what's on screen] so an editor can generate matching AI visuals later. Write 550-750 words. Plain text only, no markdown headers.`;
+        ? `You write scripts for faceless AI-fitness YouTube videos. You MUST call the web_search tool at least twice before writing the script — do this even if you're already confident, because the goal is real, checkable sources, not just what you already know. Search for credible sources on the specific claims this script needs — NOT invented studies, NOT fabricated statistics, NOT a fake personal "I did this" narrative. Explain the real mechanism behind each claim (e.g. how progressive overload, hip-hinge mechanics, or EPOC actually work) in plain language, based on what you found. If search doesn't turn up something solid, state the general textbook-level finding instead of inventing specifics. ${introInstruction} The title and thumbnail are already locked — the script's only job is to deliver on that exact promise. Insert exactly 8-10 bracketed visual cues total, like [SCENE: description of what's on screen], spread evenly across the whole script (roughly one every 60-90 words) so an editor can generate matching AI visuals later — never more than 10. Write 550-750 words, and always end with a real conclusion — never let the script just trail off mid-explanation. The final 40-60 words must: (1) tie the payoff directly back to the title/hook's promise, (2) give one clear, concrete takeaway the viewer can act on right now, and (3) ${outroInstruction} After searching, output ONLY the final script as plain text — no markdown headers, no search narration, no commentary.`
+        : `You write scripts for faceless AI-fitness YouTube videos. ${introInstruction} The title and thumbnail are already locked — the script's only job is to deliver on that exact promise. Insert exactly 8-10 bracketed visual cues total, like [SCENE: description of what's on screen], spread evenly across the whole script (roughly one every 60-90 words) so an editor can generate matching AI visuals later — never more than 10. Write 550-750 words, and always end with a real conclusion — never let the script just trail off mid-explanation. The final 40-60 words must: (1) tie the payoff directly back to the title/hook's promise, (2) give one clear, concrete takeaway the viewer can act on right now, and (3) ${outroInstruction} Plain text only, no markdown headers.`;
       const user = `Title: ${selectedConcept.title}\nThumbnail concept: ${selectedConcept.thumbnailConcept}\nOpening hook: ${selectedConcept.hook}\nNiche: ${niche}`;
       const { text, sources } = await askClaude(user, sys, { maxTokens: 4000, useSearch: contentStyle === "research" });
       setScript(text);
@@ -310,7 +318,7 @@ export default function App() {
     setLoadingVisuals(true);
     setErrVisuals("");
     try {
-      const sys = `You extract every [SCENE: ...] cue from a fitness video script and prepare AI image-generation prompts. Return ONLY raw JSON, no fences: {"basePrompt": string, "scenes": [{"cue": string, "prompt": string}]}. basePrompt describes ONE consistent faceless/anonymized AI fitness presenter avatar (build, styling, lighting, art style) matching the niche and title's tone — this is the character every scene reuses, in 1-2 sentences. Each scene prompt restates the base character briefly plus the specific action/pose/setting for that cue — keep each scene prompt under 40 words so the full response stays compact. Ready to paste directly into an image generator.`;
+      const sys = `You extract every [SCENE: ...] cue from a fitness video script and prepare AI image-generation prompts. Return ONLY raw JSON, no fences: {"basePrompt": string, "scenes": [{"cue": string, "prompt": string}]}. basePrompt describes ONE consistent anonymized AI fitness presenter character in a bold comic-book/superhero illustration style — thick black outlines, cel-shaded flat coloring, muscular action-figure proportions, like a Marvel/DC-style hero illustration, NOT a photorealistic 3D render or photo. The head is a smooth, featureless mask (like a superhero mask) with simple angular eye-slit shapes — this is a deliberate stylistic choice that reads as heroic/mysterious in comic art, not literal skin. Describe build, mask/head styling, outfit, color palette, and this comic-illustration art style in 1-2 sentences — this is the character every scene reuses. Each scene prompt restates the base character briefly plus the specific action/pose/setting for that cue — keep each scene prompt under 40 words so the full response stays compact, and never ask for any words, labels, or text to appear in the image itself (AI image models render text unreliably — misspellings and garbled letters are common). CRITICAL: never describe a multi-panel, split-screen, or side-by-side comparison in a single prompt — AI image models render every panel nearly identical. If a cue implies comparing several variations (e.g. narrow/medium/wide grip), split it into that many SEPARATE single-subject scene entries instead — one clean image per variation, distinguished visually (camera angle, framing) rather than by on-image text. Ready to paste directly into an image generator.`;
       const user = `Title: ${selectedConcept?.title || ""}\nNiche: ${niche}\nScript:\n${script}`;
       const { text } = await askClaude(user, sys, { maxTokens: 4000 });
       const parsed = extractJson(text);
@@ -322,9 +330,9 @@ export default function App() {
     }
   }
 
-  async function genImage(key, prompt) {
+  async function genImage(key, prompt, isRetry) {
     setLoadingImages((prev) => ({ ...prev, [key]: true }));
-    setErrImages((prev) => ({ ...prev, [key]: "" }));
+    if (!isRetry) setErrImages((prev) => ({ ...prev, [key]: "" }));
     try {
       const res = await fetch("/api/generate-image", {
         method: "POST",
@@ -334,8 +342,17 @@ export default function App() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Request failed (" + res.status + ")");
       setGenImages((prev) => ({ ...prev, [key]: data.image }));
+      setErrImages((prev) => ({ ...prev, [key]: "" }));
+      return true;
     } catch (e) {
+      if (!isRetry) {
+        // Likely rate-limited from firing many requests back to back — wait
+        // a beat and try this one more time before giving up.
+        await new Promise((r) => setTimeout(r, 2000));
+        return genImage(key, prompt, true);
+      }
       setErrImages((prev) => ({ ...prev, [key]: e.message || "Image generation failed." }));
+      return false;
     } finally {
       setLoadingImages((prev) => ({ ...prev, [key]: false }));
     }
@@ -348,13 +365,22 @@ export default function App() {
       ...(visuals.scenes || []).map((s, i) => ({ key: `scene-${i}`, prompt: s.prompt })),
     ];
     setLoadingAll(true);
+    let succeeded = 0;
     for (let i = 0; i < items.length; i++) {
       setAllProgress(`Generating ${i + 1} of ${items.length}…`);
-      await genImage(items[i].key, items[i].prompt);
+      const ok = await genImage(items[i].key, items[i].prompt);
+      if (ok) succeeded++;
+      // Small gap between requests to avoid tripping rate limits.
+      if (i < items.length - 1) await new Promise((r) => setTimeout(r, 500));
     }
-    setAllProgress("");
+    setAllProgress(
+      succeeded === items.length
+        ? ""
+        : `${succeeded} of ${items.length} succeeded — ${items.length - succeeded} failed (see red text below each). Try Generate Image on those individually.`
+    );
     setLoadingAll(false);
   }
+
 
   async function genVoiceDirection() {
     if (!script) return;
@@ -466,12 +492,36 @@ export default function App() {
       const perImage = duration / imgs.length;
       const transitionTime = Math.min(0.5, perImage * 0.3);
 
+      // Captions: split the spoken script into short chunks and time them
+      // proportionally by word count across the audio's duration. Not
+      // perfectly synced to the actual TTS timing, but close enough to read
+      // naturally, and far better than a blank screen.
+      const cleanScript = script.replace(/\[SCENE:[^\]]*\]/g, " ").replace(/\s+/g, " ").trim();
+      const words = cleanScript.split(" ").filter(Boolean);
+      const wordsPerCaption = 6;
+      const totalWords = words.length || 1;
+      let cumWords = 0;
+      const captions = [];
+      for (let i = 0; i < words.length; i += wordsPerCaption) {
+        const chunkWords = words.slice(i, i + wordsPerCaption);
+        const start = (cumWords / totalWords) * duration;
+        cumWords += chunkWords.length;
+        const end = (cumWords / totalWords) * duration;
+        captions.push({ text: chunkWords.join(" ").toUpperCase(), start, end });
+      }
+
       const canvas = canvasRef.current;
       const cw = 1024;
       const ch = 1536; // portrait — matches the 9:16-ish Shorts/TikTok images
       canvas.width = cw;
       canvas.height = ch;
       const ctx = canvas.getContext("2d");
+
+      // Alternate pan direction per image so it's not a static center-zoom
+      // every time — subtle left/right/up/down drift alongside the zoom.
+      const panDirs = imgs.map((_, i) => [
+        [1, 0], [-1, 0], [0, 1], [0, -1],
+      ][i % 4]);
 
       let audioStream;
       try {
@@ -503,33 +553,101 @@ export default function App() {
 
       setAssembleProgress("Recording…");
 
+      function wrapText(text, maxWidth) {
+        const wds = text.split(" ");
+        const lines = [];
+        let current = "";
+        for (const w of wds) {
+          const test = current ? current + " " + w : w;
+          if (ctx.measureText(test).width > maxWidth && current) {
+            lines.push(current);
+            current = w;
+          } else {
+            current = test;
+          }
+        }
+        if (current) lines.push(current);
+        return lines;
+      }
+
       function drawFrame() {
-        const t = audio.currentTime;
+        const t = Math.min(audio.currentTime, duration);
         const idx = Math.min(imgs.length - 1, Math.floor(t / perImage));
         const localT = t - idx * perImage;
         const img = imgs[idx];
         const nextImg = imgs[idx + 1];
+        const [px, py] = panDirs[idx];
 
         ctx.clearRect(0, 0, cw, ch);
 
-        const drawImg = (image, alpha) => {
-          const zoom = 1 + 0.08 * (localT / perImage);
-          // "Cover" fit: scale so the image fills the portrait canvas with
-          // no letterboxing, cropping the longer dimension as needed.
+        const drawImg = (image, alpha, dirX, dirY, progress) => {
+          const zoom = 1 + 0.1 * progress;
           const baseScale = Math.max(cw / image.width, ch / image.height);
           const scale = baseScale * zoom;
           const w = image.width * scale;
           const h = image.height * scale;
+          // pan drift capped so it never reveals empty canvas edges
+          const maxDriftX = Math.max(0, (w - cw) / 2);
+          const maxDriftY = Math.max(0, (h - ch) / 2);
+          const driftX = dirX * maxDriftX * 0.6 * progress;
+          const driftY = dirY * maxDriftY * 0.6 * progress;
           ctx.save();
           ctx.globalAlpha = alpha;
-          ctx.drawImage(image, (cw - w) / 2, (ch - h) / 2, w, h);
+          ctx.drawImage(image, (cw - w) / 2 - driftX, (ch - h) / 2 - driftY, w, h);
           ctx.restore();
         };
 
-        drawImg(img, 1);
+        drawImg(img, 1, px, py, localT / perImage);
         if (nextImg && localT > perImage - transitionTime) {
           const fadeT = (localT - (perImage - transitionTime)) / transitionTime;
-          drawImg(nextImg, fadeT);
+          const [npx, npy] = panDirs[idx + 1];
+          drawImg(nextImg, fadeT, npx, npy, 0);
+        }
+
+        // Speech bubble overlay — comic-style bubble with a tail, matching
+        // the illustrated character art style, instead of a plain caption bar.
+        const activeCaption = captions.find((c) => t >= c.start && t < c.end);
+        if (activeCaption) {
+          ctx.font = "bold 44px Arial, sans-serif";
+          const lines = wrapText(activeCaption.text, cw - 220);
+          const lineHeight = 54;
+          const paddingX = 40;
+          const paddingY = 34;
+          const boxWidth = cw - 140;
+          const boxHeight = lines.length * lineHeight + paddingY * 2;
+          const boxX = 70;
+          const boxY = 90;
+          const radius = 28;
+          const tailX = boxX + boxWidth * 0.28;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(boxX + radius, boxY);
+          ctx.lineTo(boxX + boxWidth - radius, boxY);
+          ctx.quadraticCurveTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + radius);
+          ctx.lineTo(boxX + boxWidth, boxY + boxHeight - radius);
+          ctx.quadraticCurveTo(boxX + boxWidth, boxY + boxHeight, boxX + boxWidth - radius, boxY + boxHeight);
+          ctx.lineTo(tailX + 50, boxY + boxHeight);
+          ctx.lineTo(tailX, boxY + boxHeight + 46);
+          ctx.lineTo(tailX - 10, boxY + boxHeight);
+          ctx.lineTo(boxX + radius, boxY + boxHeight);
+          ctx.quadraticCurveTo(boxX, boxY + boxHeight, boxX, boxY + boxHeight - radius);
+          ctx.lineTo(boxX, boxY + radius);
+          ctx.quadraticCurveTo(boxX, boxY, boxX + radius, boxY);
+          ctx.closePath();
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fill();
+          ctx.lineWidth = 6;
+          ctx.strokeStyle = "#000000";
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.fillStyle = "#000000";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "top";
+          lines.forEach((line, i) => {
+            ctx.fillText(line, boxX + boxWidth / 2, boxY + paddingY + i * lineHeight, boxWidth - paddingX);
+          });
         }
 
         if (!audio.ended && !audio.paused) {
@@ -542,6 +660,30 @@ export default function App() {
       requestAnimationFrame(drawFrame);
 
       await new Promise((resolve) => audio.addEventListener("ended", resolve, { once: true }));
+
+      // Hold the last frame briefly and fade to black instead of cutting
+      // off the instant the audio stops — reads as an intentional ending.
+      await new Promise((resolveOutro) => {
+        const outroStart = performance.now();
+        const outroDuration = 700;
+        function outroFrame() {
+          const elapsed = performance.now() - outroStart;
+          const p = Math.min(1, elapsed / outroDuration);
+          drawFrame();
+          ctx.save();
+          ctx.globalAlpha = p;
+          ctx.fillStyle = "#000000";
+          ctx.fillRect(0, 0, cw, ch);
+          ctx.restore();
+          if (p < 1) {
+            requestAnimationFrame(outroFrame);
+          } else {
+            resolveOutro();
+          }
+        }
+        outroFrame();
+      });
+
       recorder.stop();
       await stopped;
       setAssembleProgress("Done");
@@ -605,6 +747,29 @@ export default function App() {
           <div className="rounded-xl p-5" style={{ background: C.panel, border: `1px solid ${C.line}` }}>
             <StageHeader stage={STAGES[0]} active done={done.concept} />
             <p className="text-sm mb-4" style={{ color: C.boneDim }}>Package first, script never. Give a niche and we reverse-engineer titles people click.</p>
+
+            <div className="rounded-lg p-3 mb-4" style={{ background: C.bg, border: `1px solid ${C.line}` }}>
+              <label className="f-mono text-[11px] block mb-1" style={{ color: C.tape }}>CHANNEL BRANDING — opens every script</label>
+              <div className="flex gap-2">
+                <input
+                  value={channelName}
+                  onChange={(e) => setChannelName(e.target.value)}
+                  placeholder="Channel name"
+                  className="f-body flex-1 rounded-lg px-3 py-2 text-sm outline-none"
+                  style={{ background: C.panel, color: C.bone, border: `1px solid ${C.line}` }}
+                />
+                <input
+                  value={channelTagline}
+                  onChange={(e) => setChannelTagline(e.target.value)}
+                  placeholder="Tagline"
+                  className="f-body flex-1 rounded-lg px-3 py-2 text-sm outline-none"
+                  style={{ background: C.panel, color: C.bone, border: `1px solid ${C.line}` }}
+                />
+              </div>
+              <p className="text-[11px] mt-1.5" style={{ color: C.boneDim }}>
+                Leave blank to skip the intro entirely.
+              </p>
+            </div>
 
             <label className="f-mono text-[11px] block mb-1" style={{ color: C.tape }}>NICHE / TOPIC</label>
             <input
@@ -755,7 +920,7 @@ export default function App() {
                     <PrimaryButton onClick={genAllImages} loading={loadingAll} icon={ImageIcon}>
                       GENERATE ALL IMAGES
                     </PrimaryButton>
-                    {loadingAll && <p className="text-[11px] mt-1.5" style={{ color: C.boneDim }}>{allProgress}</p>}
+                    {allProgress && <p className="text-[11px] mt-1.5" style={{ color: loadingAll ? C.boneDim : C.rec }}>{allProgress}</p>}
                     <p className="text-[11px] mt-1.5" style={{ color: C.boneDim }}>
                       Generates the base character plus every scene, one at a time — you can still regenerate any single image below.
                     </p>
@@ -926,7 +1091,7 @@ export default function App() {
                   <div className="mt-5 pt-4" style={{ borderTop: `1px solid ${C.line}` }}>
                     <span className="f-mono text-[11px] block mb-2" style={{ color: C.tape }}>ASSEMBLE VIDEO (BETA)</span>
                     <p className="text-xs mb-3" style={{ color: C.boneDim }}>
-                      Stitches your generated scene images from CH.03 with this voiceover into a slideshow — zoom + crossfade transitions, timed to the audio length. Runs in your browser, works best in Chrome or Firefox on desktop. Stay on this screen while it processes.
+                      Stitches your generated scene images from CH.03 with this voiceover — pan + zoom transitions, burned-in captions, timed to the audio length. Runs in your browser, works best in Chrome or Firefox on desktop. Stay on this screen while it processes. More scene images = more variety, so generate as many as you can in CH.03 first.
                     </p>
                     <PrimaryButton onClick={assembleVideo} loading={assembling} icon={Film}>
                       STITCH VIDEO

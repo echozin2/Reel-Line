@@ -68,15 +68,19 @@ export default async function handler(req, res) {
       break;
     }
 
-    const textBlocks = allContent.filter((b) => b.type === "text");
+    const textBlocks = allContent.filter((b) => b.type === "text" && b.text && b.text.trim());
 
-    // With search, Claude often emits short narration ("Let me check...")
-    // before/between searches, then the real final answer as the LAST text
-    // block. Without search there's normally just one block, so join is
-    // equivalent either way.
+    // With search, Claude emits short narration blocks ("Let me check...")
+    // separate from the real deliverable. The narration is always much
+    // shorter than the actual script/JSON payload, so picking the LONGEST
+    // block is far more reliable than assuming it's simply the last one.
     const text = useSearch && textBlocks.length > 1
-      ? (textBlocks[textBlocks.length - 1].text || "").trim()
+      ? textBlocks.reduce((longest, b) => (b.text.length > longest.text.length ? b : longest)).text.trim()
       : textBlocks.map((b) => b.text).join("\n").trim();
+
+    if (useSearch && text.length < 80) {
+      return res.status(502).json({ error: "Claude's response got cut off mid-search — try regenerating." });
+    }
 
     const sources = [];
     const seen = new Set();

@@ -28,7 +28,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: "gpt-image-1-mini",
         prompt,
-        size: "1024x1024",
+        size: "1024x1536", // portrait — closest available size to 9:16 Shorts/TikTok
         quality: "low", // cheap + fast — fine for testing, bump to "medium"/"high" later
         n: 1,
       }),

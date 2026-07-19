@@ -194,6 +194,8 @@ export default function App() {
   const [genImages, setGenImages] = useState({}); // key -> data URL
   const [loadingImages, setLoadingImages] = useState({}); // key -> bool
   const [errImages, setErrImages] = useState({}); // key -> string
+  const [loadingAll, setLoadingAll] = useState(false);
+  const [allProgress, setAllProgress] = useState("");
 
   const [voiceDirection, setVoiceDirection] = useState("");
   const [loadingVoiceDir, setLoadingVoiceDir] = useState(false);
@@ -317,6 +319,21 @@ export default function App() {
     } finally {
       setLoadingImages((prev) => ({ ...prev, [key]: false }));
     }
+  }
+
+  async function genAllImages() {
+    if (!visuals) return;
+    const items = [
+      { key: "base", prompt: visuals.basePrompt },
+      ...(visuals.scenes || []).map((s, i) => ({ key: `scene-${i}`, prompt: s.prompt })),
+    ];
+    setLoadingAll(true);
+    for (let i = 0; i < items.length; i++) {
+      setAllProgress(`Generating ${i + 1} of ${items.length}…`);
+      await genImage(items[i].key, items[i].prompt);
+    }
+    setAllProgress("");
+    setLoadingAll(false);
   }
 
   async function genVoiceDirection() {
@@ -678,6 +695,18 @@ export default function App() {
                   {visuals ? "REGENERATE PROMPTS" : "GENERATE VISUAL PROMPTS"}
                 </PrimaryButton>
                 {errVisuals && <p className="text-xs mt-2" style={{ color: C.rec }}>{errVisuals}</p>}
+
+                {visuals && (
+                  <div className="mt-3">
+                    <PrimaryButton onClick={genAllImages} loading={loadingAll} icon={ImageIcon}>
+                      GENERATE ALL IMAGES
+                    </PrimaryButton>
+                    {loadingAll && <p className="text-[11px] mt-1.5" style={{ color: C.boneDim }}>{allProgress}</p>}
+                    <p className="text-[11px] mt-1.5" style={{ color: C.boneDim }}>
+                      Generates the base character plus every scene, one at a time — you can still regenerate any single image below.
+                    </p>
+                  </div>
+                )}
 
                 {visuals && (
                   <div className="mt-4 space-y-3">

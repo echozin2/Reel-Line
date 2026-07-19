@@ -25,13 +25,14 @@ const STAGES = [
   { id: "thumbnail", ch: "CH.05", title: "Thumbnail Brief", icon: LayoutTemplate },
 ];
 
-async function askClaude(userPrompt, system, maxTokens) {
+async function askClaude(userPrompt, system, opts = {}) {
+  const { maxTokens, useSearch } = opts;
   let res;
   try {
     res = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ system, prompt: userPrompt, maxTokens }),
+      body: JSON.stringify({ system, prompt: userPrompt, maxTokens, useSearch }),
     });
   } catch (networkErr) {
     throw new Error("Network error reaching the server: " + networkErr.message);
@@ -41,7 +42,23 @@ async function askClaude(userPrompt, system, maxTokens) {
     throw new Error(data.error || "Request failed (" + res.status + ")");
   }
   if (!data.text) throw new Error("Empty response from Claude.");
-  return data.text;
+  return { text: data.text, sources: data.sources || [] };
+}
+
+function extractJson(text) {
+  const cleaned = stripFences(text);
+  try {
+    return JSON.parse(cleaned);
+  } catch (_) {
+    // fall through
+  }
+  const candidates = ["{", "["].map((c) => cleaned.indexOf(c)).filter((i) => i !== -1);
+  const first = candidates.length ? Math.min(...candidates) : -1;
+  const last = Math.max(cleaned.lastIndexOf("}"), cleaned.lastIndexOf("]"));
+  if (first !== -1 && last > first) {
+    return JSON.parse(cleaned.slice(first, last + 1));
+  }
+  throw new Error("Could not parse a response from Claude.");
 }
 
 function stripFences(s) {
@@ -114,6 +131,29 @@ function TextArea({ value, onChange, rows = 6, placeholder }) {
   );
 }
 
+function SourceList({ sources }) {
+  if (!sources || sources.length === 0) return null;
+  return (
+    <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${C.line}` }}>
+      <span className="f-mono text-[11px] block mb-1.5" style={{ color: C.tape }}>SOURCES</span>
+      <div className="space-y-1">
+        {sources.map((s, i) => (
+          <a
+            key={i}
+            href={s.url}
+            target="_blank"
+            rel="noreferrer"
+            className="block text-[11px] truncate underline"
+            style={{ color: C.boneDim }}
+          >
+            {s.title}
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PrimaryButton({ onClick, loading, children, icon: Icon = Play, disabled }) {
   return (
     <button
@@ -138,11 +178,13 @@ export default function App() {
   const [contentStyle, setContentStyle] = useState("story"); // "story" | "research"
 
   const [concepts, setConcepts] = useState(null);
+  const [conceptSources, setConceptSources] = useState([]);
   const [selectedConcept, setSelectedConcept] = useState(null);
   const [loadingConcepts, setLoadingConcepts] = useState(false);
   const [errConcepts, setErrConcepts] = useState("");
 
   const [script, setScript] = useState("");
+  const [scriptSources, setScriptSources] = useState([]);
   const [loadingScript, setLoadingScript] = useState(false);
   const [errScript, setErrScript] = useState("");
 
@@ -176,8 +218,8 @@ export default function App() {
     try {
       const sys = `You come up with fresh, specific sub-niches for faceless AI-fitness YouTube channels — the kind with real search demand but not oversaturated. Return ONLY raw JSON, no fences: {"niche": string, "angle": string}. niche is 3-6 words, specific (not just "fitness"). angle is a one-line contrarian or specific constraint that makes it stand out.`;
       const user = `Give me one idea, different from generic ones like "home workouts" or "weight loss tips". Surprise me.`;
-      const text = await askClaude(user, sys);
-      const parsed = JSON.parse(stripFences(text));
+      const { text } = await askClaude(user, sys);
+      const parsed = extractJson(text);
       setNiche(parsed.niche || "");
       setAngle(parsed.angle || "");
       if (andRun) await genConcepts(parsed.niche, parsed.angle);
@@ -195,15 +237,17 @@ export default function App() {
     setLoadingConcepts(true);
     setErrConcepts("");
     setConcepts(null);
+    setConceptSources([]);
     setSelectedConcept(null);
     try {
       const sys = contentStyle === "research"
-        ? `You are a YouTube strategist for faceless AI-fitness channels who only makes claims backed by well-established, general exercise science (progressive overload, hip-hinge mechanics, EPOC, protein synthesis, etc.) — NOT invented studies, NOT fabricated statistics, NOT specific numbers no one could verify. Never write a first-person "I did X for 30 days" narrative — you have no body and did nothing. Frame titles around real, widely-accepted training principles instead. Return ONLY raw JSON, no markdown fences, no commentary. Schema: [{"title": string, "thumbnailConcept": string, "hook": string}] with exactly 3 items. Titles make a bold, specific promise grounded in real training science. thumbnailConcept describes a single dynamic image concept (diagram/demonstration/comparison) in one sentence. hook is the first line the video should open with, and must not claim a personal result that didn't happen.`
+        ? `You are a YouTube strategist for faceless AI-fitness channels. Use web search to find real, credible sources (established fitness science sites, sports medicine orgs, reputable coaching resources) about this niche before writing anything. Only make claims you actually found in search results — NOT invented studies, NOT fabricated statistics. Never write a first-person "I did X for 30 days" narrative — you have no body and did nothing. Frame titles around real, verifiable training principles. After searching, respond with ONLY raw JSON, no markdown fences, no commentary, no search narration in the final answer. Schema: [{"title": string, "thumbnailConcept": string, "hook": string}] with exactly 3 items. Titles make a bold, specific promise grounded in what you found. thumbnailConcept describes a single dynamic image concept (diagram/demonstration/comparison) in one sentence. hook is the first line the video should open with, and must not claim a personal result that didn't happen.`
         : `You are a YouTube strategist for faceless AI-fitness channels. You reverse-engineer what gets clicks BEFORE any script exists. Return ONLY raw JSON, no markdown fences, no commentary. Schema: [{"title": string, "thumbnailConcept": string, "hook": string}] with exactly 3 items. Titles make a bold, specific promise. thumbnailConcept describes a single dynamic image concept (pose/composition/before-after) in one sentence. hook is the first line the video should open with.`;
       const user = `Niche: ${useNiche}\n${useAngle ? "Angle/constraint: " + useAngle : ""}\nGenerate 3 distinct title + thumbnail concept pairs.`;
-      const text = await askClaude(user, sys);
-      const parsed = JSON.parse(stripFences(text));
+      const { text, sources } = await askClaude(user, sys, { useSearch: contentStyle === "research" });
+      const parsed = extractJson(text);
       setConcepts(parsed);
+      setConceptSources(sources);
     } catch (e) {
       setErrConcepts(e.message || "Something went wrong.");
     } finally {
@@ -217,11 +261,12 @@ export default function App() {
     setErrScript("");
     try {
       const sys = contentStyle === "research"
-        ? `You write scripts for faceless AI-fitness YouTube videos that are grounded in real, well-established exercise science — NOT invented studies, NOT fabricated statistics, NOT a fake personal "I did this" narrative. Explain the real mechanism behind the claim (e.g. how progressive overload, hip-hinge mechanics, or EPOC actually work) in plain language. If you're not certain a specific number or study is real, don't state it — describe the general, textbook-level finding instead. The title and thumbnail are already locked — the script's only job is to deliver on that exact promise, starting with a hook in the first 10 seconds. Every 15-25 words, insert a bracketed visual cue like [SCENE: description of what's on screen] so an editor can generate matching AI visuals later. Write 550-750 words. Plain text only, no markdown headers.`
+        ? `You write scripts for faceless AI-fitness YouTube videos. Use web search to find real, credible sources on the specific claims this script needs before writing — NOT invented studies, NOT fabricated statistics, NOT a fake personal "I did this" narrative. Explain the real mechanism behind each claim (e.g. how progressive overload, hip-hinge mechanics, or EPOC actually work) in plain language, based on what you found. If search doesn't turn up something solid, state the general textbook-level finding instead of inventing specifics. The title and thumbnail are already locked — the script's only job is to deliver on that exact promise, starting with a hook in the first 10 seconds. Every 15-25 words, insert a bracketed visual cue like [SCENE: description of what's on screen] so an editor can generate matching AI visuals later. Write 550-750 words. After searching, output ONLY the final script as plain text — no markdown headers, no search narration, no commentary.`
         : `You write scripts for faceless AI-fitness YouTube videos. The title and thumbnail are already locked — the script's only job is to deliver on that exact promise, starting with a hook in the first 10 seconds. Every 15-25 words, insert a bracketed visual cue like [SCENE: description of what's on screen] so an editor can generate matching AI visuals later. Write 550-750 words. Plain text only, no markdown headers.`;
       const user = `Title: ${selectedConcept.title}\nThumbnail concept: ${selectedConcept.thumbnailConcept}\nOpening hook: ${selectedConcept.hook}\nNiche: ${niche}`;
-      const text = await askClaude(user, sys, 3000);
+      const { text, sources } = await askClaude(user, sys, { maxTokens: 3000, useSearch: contentStyle === "research" });
       setScript(text);
+      setScriptSources(sources);
     } catch (e) {
       setErrScript(e.message || "Something went wrong.");
     } finally {
@@ -236,8 +281,8 @@ export default function App() {
     try {
       const sys = `You extract every [SCENE: ...] cue from a fitness video script and prepare AI image-generation prompts for Whisk. Return ONLY raw JSON, no fences: {"basePrompt": string, "scenes": [{"cue": string, "prompt": string}]}. basePrompt describes ONE consistent faceless/anonymized AI fitness presenter avatar (build, styling, lighting, art style) matching the niche and title's tone — this is the character every scene reuses. Each scene prompt restates the base character briefly plus the specific action/pose/setting for that cue, ready to paste directly into an image generator.`;
       const user = `Title: ${selectedConcept?.title || ""}\nNiche: ${niche}\nScript:\n${script}`;
-      const text = await askClaude(user, sys, 3000);
-      const parsed = JSON.parse(stripFences(text));
+      const { text } = await askClaude(user, sys, { maxTokens: 3000 });
+      const parsed = extractJson(text);
       setVisuals(parsed);
     } catch (e) {
       setErrVisuals(e.message || "Something went wrong.");
@@ -252,7 +297,7 @@ export default function App() {
     try {
       const sys = `Give short, practical voice-casting direction for an ElevenLabs voiceover of a faceless fitness video. 3-4 sentences max: pace, tone, energy, and what to avoid (e.g. "not robotic"). Plain text.`;
       const user = `Title: ${selectedConcept?.title || ""}\nNiche: ${niche}\nScript excerpt:\n${script.slice(0, 600)}`;
-      const text = await askClaude(user, sys);
+      const { text } = await askClaude(user, sys);
       setVoiceDirection(text);
     } catch (e) {
       setVoiceDirection("Could not generate direction — write your script into ElevenLabs and test 2-3 voices for authoritative-but-natural tone.");
@@ -293,7 +338,7 @@ export default function App() {
     try {
       const sys = `Write a short thumbnail production brief for Canva. Plain text, 4 short labeled lines: TEXT OVERLAY (max 3 words, all caps), LAYOUT (composition/pose direction), CONTRAST (color/lighting note), VARIATIONS (2-3 quick variant ideas to A/B test).`;
       const user = `Title: ${selectedConcept.title}\nThumbnail concept: ${selectedConcept.thumbnailConcept}\nNiche: ${niche}`;
-      const text = await askClaude(user, sys);
+      const { text } = await askClaude(user, sys);
       setThumbBrief(text);
     } catch (e) {
       setErrThumb(e.message || "Something went wrong.");
@@ -421,6 +466,7 @@ export default function App() {
                 ))}
               </div>
             )}
+            <SourceList sources={conceptSources} />
 
             {selectedConcept && (
               <div className="mt-4 flex justify-end">
@@ -453,6 +499,7 @@ export default function App() {
                       <CopyBtn text={script} />
                     </div>
                     <TextArea value={script} onChange={setScript} rows={14} />
+                    <SourceList sources={scriptSources} />
                   </div>
                 )}
                 {script && (

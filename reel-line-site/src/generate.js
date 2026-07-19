@@ -19,50 +19,68 @@ export default async function handler(req, res) {
   }
 
   try {
-    const body = {
-      model: "claude-sonnet-5",
-      max_tokens: maxTokens || 2000,
-      system,
-      messages: [{ role: "user", content: prompt }],
-    };
+    const tools = useSearch
+      ? [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }]
+      : undefined;
 
-    if (useSearch) {
-      // Real, live web search — Claude decides when to search and the
-      // results come back grounded with actual source URLs.
-      body.tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }];
+    let messages = [{ role: "user", content: prompt }];
+    let allContent = [];
+    let lastData = null;
+    let iterations = 0;
+
+    // Long web-search turns can come back with stop_reason "pause_turn" —
+    // the response is incomplete and must be continued by sending the
+    // paused assistant content back in a follow-up request. Loop until the
+    // turn actually ends.
+    while (iterations < 6) {
+      const body = {
+        model: "claude-sonnet-5",
+        max_tokens: maxTokens || 2000,
+        system,
+        messages,
+      };
+      if (tools) body.tools = tools;
+
+      const upstream = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = await upstream.json();
+
+      if (!upstream.ok) {
+        return res.status(upstream.status).json({ error: data?.error?.message || "Anthropic API error", detail: data });
+      }
+
+      lastData = data;
+      allContent = allContent.concat(data.content || []);
+
+      if (data.stop_reason === "pause_turn") {
+        messages = [...messages, { role: "assistant", content: data.content }];
+        iterations++;
+        continue;
+      }
+      break;
     }
 
-    const upstream = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify(body),
-    });
+    const textBlocks = allContent.filter((b) => b.type === "text");
 
-    const data = await upstream.json();
-
-    if (!upstream.ok) {
-      return res.status(upstream.status).json({ error: data?.error?.message || "Anthropic API error", detail: data });
-    }
-
-    const content = data.content || [];
-    const textBlocks = content.filter((b) => b.type === "text");
-
-    // When search is involved, Claude often emits short intermediate text
-    // ("Let me check...") between searches, then a final full answer. The
-    // LAST text block is the actual deliverable; earlier ones are narration.
-    // Without search, there's normally just one block, so join is safe either way.
+    // With search, Claude often emits short narration ("Let me check...")
+    // before/between searches, then the real final answer as the LAST text
+    // block. Without search there's normally just one block, so join is
+    // equivalent either way.
     const text = useSearch && textBlocks.length > 1
       ? (textBlocks[textBlocks.length - 1].text || "").trim()
       : textBlocks.map((b) => b.text).join("\n").trim();
 
-    // Pull real source URLs out of the web search tool results.
     const sources = [];
     const seen = new Set();
-    for (const block of content) {
+    for (const block of allContent) {
       if (block.type === "web_search_tool_result" && Array.isArray(block.content)) {
         for (const r of block.content) {
           if (r.url && !seen.has(r.url)) {

@@ -199,6 +199,8 @@ export default function App() {
 
   const [voiceDirection, setVoiceDirection] = useState("");
   const [loadingVoiceDir, setLoadingVoiceDir] = useState(false);
+  const [voiceProvider, setVoiceProvider] = useState("openai"); // "openai" | "elevenlabs"
+  const [oaiVoice, setOaiVoice] = useState("onyx");
   const [elKey, setElKey] = useState("");
   const [elVoiceId, setElVoiceId] = useState("21m00Tcm4TlvDq8ikWAM");
   const [audioUrl, setAudioUrl] = useState(null);
@@ -369,7 +371,7 @@ export default function App() {
     }
   }
 
-  async function genAudio() {
+  async function genAudioElevenLabs() {
     if (!elKey.trim() || !script) return;
     setLoadingAudio(true);
     setErrAudio("");
@@ -392,6 +394,35 @@ export default function App() {
     } finally {
       setLoadingAudio(false);
     }
+  }
+
+  async function genAudioOpenAI() {
+    if (!script) return;
+    setLoadingAudio(true);
+    setErrAudio("");
+    setAudioUrl(null);
+    try {
+      const cleanScript = script.replace(/\[SCENE:[^\]]*\]/g, " ").replace(/\s+/g, " ").trim();
+      const res = await fetch("/api/generate-voice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: cleanScript, voice: oaiVoice, instructions: voiceDirection || undefined }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Request failed (" + res.status + ")");
+      }
+      const blob = await res.blob();
+      setAudioUrl(URL.createObjectURL(blob));
+    } catch (e) {
+      setErrAudio(e.message || "Voiceover generation failed.");
+    } finally {
+      setLoadingAudio(false);
+    }
+  }
+
+  function genAudio() {
+    return voiceProvider === "openai" ? genAudioOpenAI() : genAudioElevenLabs();
   }
 
   async function assembleVideo() {
@@ -810,27 +841,81 @@ export default function App() {
                 )}
 
                 <div className="mt-5 pt-4" style={{ borderTop: `1px solid ${C.line}` }}>
-                  <span className="f-mono text-[11px] block mb-2" style={{ color: C.tape }}>OPTIONAL — GENERATE AUDIO WITH ELEVENLABS</span>
-                  <p className="text-xs mb-3" style={{ color: C.boneDim }}>
-                    Your key stays in this browser tab only — it's sent straight to ElevenLabs, never through our server.
-                  </p>
-                  <input
-                    type="password"
-                    value={elKey}
-                    onChange={(e) => setElKey(e.target.value)}
-                    placeholder="ElevenLabs API key"
-                    className="f-mono w-full rounded-lg px-3 py-2 text-xs outline-none mb-2"
-                    style={{ background: C.bg, color: C.bone, border: `1px solid ${C.line}` }}
-                  />
-                  <input
-                    value={elVoiceId}
-                    onChange={(e) => setElVoiceId(e.target.value)}
-                    placeholder="Voice ID"
-                    className="f-mono w-full rounded-lg px-3 py-2 text-xs outline-none mb-3"
-                    style={{ background: C.bg, color: C.bone, border: `1px solid ${C.line}` }}
-                  />
-                  <p className="text-[11px] mb-3" style={{ color: C.boneDim }}>Default is ElevenLabs' premade "Rachel" voice — swap in any voice ID from your account.</p>
-                  <PrimaryButton onClick={genAudio} loading={loadingAudio} icon={Play} disabled={!elKey.trim()}>
+                  <span className="f-mono text-[11px] block mb-2" style={{ color: C.tape }}>GENERATE VOICEOVER AUDIO</span>
+
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      onClick={() => setVoiceProvider("openai")}
+                      className="f-mono flex-1 text-xs px-3 py-2 rounded-lg transition-colors"
+                      style={{
+                        background: voiceProvider === "openai" ? C.tape : C.bg,
+                        color: voiceProvider === "openai" ? "#0B0D0F" : C.boneDim,
+                        border: `1px solid ${voiceProvider === "openai" ? C.tape : C.line}`,
+                      }}
+                    >
+                      OPENAI (NO EXTRA KEY)
+                    </button>
+                    <button
+                      onClick={() => setVoiceProvider("elevenlabs")}
+                      className="f-mono flex-1 text-xs px-3 py-2 rounded-lg transition-colors"
+                      style={{
+                        background: voiceProvider === "elevenlabs" ? C.tape : C.bg,
+                        color: voiceProvider === "elevenlabs" ? "#0B0D0F" : C.boneDim,
+                        border: `1px solid ${voiceProvider === "elevenlabs" ? C.tape : C.line}`,
+                      }}
+                    >
+                      ELEVENLABS
+                    </button>
+                  </div>
+
+                  {voiceProvider === "openai" ? (
+                    <>
+                      <p className="text-xs mb-3" style={{ color: C.boneDim }}>
+                        Uses the same OpenAI key already set up for images — nothing extra to add. Uses the voice direction above to guide tone automatically.
+                      </p>
+                      <label className="f-mono text-[11px] block mb-1" style={{ color: C.tape }}>VOICE</label>
+                      <select
+                        value={oaiVoice}
+                        onChange={(e) => setOaiVoice(e.target.value)}
+                        className="f-mono w-full rounded-lg px-3 py-2 text-xs outline-none mb-3"
+                        style={{ background: C.bg, color: C.bone, border: `1px solid ${C.line}` }}
+                      >
+                        <option value="onyx">Onyx — deep, authoritative</option>
+                        <option value="echo">Echo — warm, approachable</option>
+                        <option value="ash">Ash — bold, strong presence</option>
+                        <option value="fable">Fable — animated, energetic</option>
+                        <option value="nova">Nova — clear, polished</option>
+                        <option value="alloy">Alloy — neutral, balanced</option>
+                        <option value="coral">Coral — warm, friendly</option>
+                        <option value="sage">Sage — calm, measured</option>
+                        <option value="shimmer">Shimmer — bright, upbeat</option>
+                      </select>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs mb-3" style={{ color: C.boneDim }}>
+                        Your key stays in this browser tab only — it's sent straight to ElevenLabs, never through our server.
+                      </p>
+                      <input
+                        type="password"
+                        value={elKey}
+                        onChange={(e) => setElKey(e.target.value)}
+                        placeholder="ElevenLabs API key"
+                        className="f-mono w-full rounded-lg px-3 py-2 text-xs outline-none mb-2"
+                        style={{ background: C.bg, color: C.bone, border: `1px solid ${C.line}` }}
+                      />
+                      <input
+                        value={elVoiceId}
+                        onChange={(e) => setElVoiceId(e.target.value)}
+                        placeholder="Voice ID"
+                        className="f-mono w-full rounded-lg px-3 py-2 text-xs outline-none mb-3"
+                        style={{ background: C.bg, color: C.bone, border: `1px solid ${C.line}` }}
+                      />
+                      <p className="text-[11px] mb-3" style={{ color: C.boneDim }}>Default is ElevenLabs' premade "Rachel" voice — swap in any voice ID from your account.</p>
+                    </>
+                  )}
+
+                  <PrimaryButton onClick={genAudio} loading={loadingAudio} icon={Play} disabled={voiceProvider === "elevenlabs" && !elKey.trim()}>
                     GENERATE VOICEOVER
                   </PrimaryButton>
                   {errAudio && <p className="text-xs mt-2" style={{ color: C.rec }}>{errAudio}</p>}

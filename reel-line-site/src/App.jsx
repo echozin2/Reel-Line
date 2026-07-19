@@ -175,6 +175,8 @@ export default function App() {
   const [niche, setNiche] = useState("");
   const [channelName, setChannelName] = useState("FORM FORGE");
   const [channelTagline, setChannelTagline] = useState("Move. Train. Improve.");
+  const [channelLogo, setChannelLogo] = useState(null); // data URL of uploaded logo
+  const [useLogoForIntro, setUseLogoForIntro] = useState(true);
   const [angle, setAngle] = useState("");
   const [loadingNiche, setLoadingNiche] = useState(false);
   const [contentStyle, setContentStyle] = useState("story"); // "story" | "research"
@@ -207,6 +209,7 @@ export default function App() {
   const [elVoiceId, setElVoiceId] = useState("21m00Tcm4TlvDq8ikWAM");
   const [audioUrl, setAudioUrl] = useState(null);
   const [loadingAudio, setLoadingAudio] = useState(false);
+  const [audioProgress, setAudioProgress] = useState("");
   const [errAudio, setErrAudio] = useState("");
 
   const [thumbBrief, setThumbBrief] = useState("");
@@ -300,8 +303,8 @@ export default function App() {
         ? `The script's very last line must be close to verbatim: "Well, that's it — and remember... ${channelTagline.trim().toUpperCase()}... catch you next time!" (keep that rhythm and structure; light wording tweaks are fine, but the tagline shout and "catch you next time" close must stay).`
         : `Close with a short, natural sign-off line specific to this video's topic.`;
       const sys = contentStyle === "research"
-        ? `You write scripts for faceless AI-fitness YouTube videos. You MUST call the web_search tool at least twice before writing the script — do this even if you're already confident, because the goal is real, checkable sources, not just what you already know. Search for credible sources on the specific claims this script needs — NOT invented studies, NOT fabricated statistics, NOT a fake personal "I did this" narrative. Explain the real mechanism behind each claim (e.g. how progressive overload, hip-hinge mechanics, or EPOC actually work) in plain language, based on what you found. If search doesn't turn up something solid, state the general textbook-level finding instead of inventing specifics. ${introInstruction} The title and thumbnail are already locked — the script's only job is to deliver on that exact promise. Insert exactly 8-10 bracketed visual cues total, like [SCENE: description of what's on screen], spread evenly across the whole script (roughly one every 60-90 words) so an editor can generate matching AI visuals later — never more than 10. Write 550-750 words, and always end with a real conclusion — never let the script just trail off mid-explanation. The final 40-60 words must: (1) tie the payoff directly back to the title/hook's promise, (2) give one clear, concrete takeaway the viewer can act on right now, and (3) ${outroInstruction} After searching, output ONLY the final script as plain text — no markdown headers, no search narration, no commentary.`
-        : `You write scripts for faceless AI-fitness YouTube videos. ${introInstruction} The title and thumbnail are already locked — the script's only job is to deliver on that exact promise. Insert exactly 8-10 bracketed visual cues total, like [SCENE: description of what's on screen], spread evenly across the whole script (roughly one every 60-90 words) so an editor can generate matching AI visuals later — never more than 10. Write 550-750 words, and always end with a real conclusion — never let the script just trail off mid-explanation. The final 40-60 words must: (1) tie the payoff directly back to the title/hook's promise, (2) give one clear, concrete takeaway the viewer can act on right now, and (3) ${outroInstruction} Plain text only, no markdown headers.`;
+        ? `You write scripts for faceless AI-fitness YouTube videos. You MUST call the web_search tool at least twice before writing the script — do this even if you're already confident, because the goal is real, checkable sources, not just what you already know. Search for credible sources on the specific claims this script needs — NOT invented studies, NOT fabricated statistics, NOT a fake personal "I did this" narrative. Explain the real mechanism behind each claim (e.g. how progressive overload, hip-hinge mechanics, or EPOC actually work) in plain language, based on what you found. If search doesn't turn up something solid, state the general textbook-level finding instead of inventing specifics. ${introInstruction} The title and thumbnail are already locked — the script's only job is to deliver on that exact promise. CRITICAL REQUIREMENT: insert AT LEAST 8 bracketed visual cues total (up to 10), like [SCENE: description of what's on screen], spread evenly across the whole script (roughly one every 60-90 words) so an editor can generate matching AI visuals later. Fewer than 8 is a failed response — never more than 10. Write 550-750 words, and always end with a real conclusion — never let the script just trail off mid-explanation. The final 40-60 words must: (1) tie the payoff directly back to the title/hook's promise, (2) give one clear, concrete takeaway the viewer can act on right now, and (3) ${outroInstruction} After searching, output ONLY the final script as plain text — no markdown headers, no search narration, no commentary. BEFORE YOU FINISH: count your [SCENE: ...] cues. If there are fewer than 8, you are not done — go back and add more throughout the script until you have at least 8 (up to 10). A script with fewer than 8 scene cues is incomplete and unacceptable.`
+        : `You write scripts for faceless AI-fitness YouTube videos. ${introInstruction} The title and thumbnail are already locked — the script's only job is to deliver on that exact promise. CRITICAL REQUIREMENT: insert AT LEAST 8 bracketed visual cues total (up to 10), like [SCENE: description of what's on screen], spread evenly across the whole script (roughly one every 60-90 words) so an editor can generate matching AI visuals later. Fewer than 8 is a failed response — never more than 10. Write 550-750 words, and always end with a real conclusion — never let the script just trail off mid-explanation. The final 40-60 words must: (1) tie the payoff directly back to the title/hook's promise, (2) give one clear, concrete takeaway the viewer can act on right now, and (3) ${outroInstruction} Plain text only, no markdown headers. BEFORE YOU FINISH: count your [SCENE: ...] cues. If there are fewer than 8, you are not done — go back and add more throughout the script until you have at least 8 (up to 10). A script with fewer than 8 scene cues is incomplete and unacceptable.`;
       const user = `Title: ${selectedConcept.title}\nThumbnail concept: ${selectedConcept.thumbnailConcept}\nOpening hook: ${selectedConcept.hook}\nNiche: ${niche}`;
       const { text, sources } = await askClaude(user, sys, { maxTokens: 4000, useSearch: contentStyle === "research" });
       setScript(text);
@@ -318,7 +321,7 @@ export default function App() {
     setLoadingVisuals(true);
     setErrVisuals("");
     try {
-      const sys = `You extract every [SCENE: ...] cue from a fitness video script and prepare AI image-generation prompts. Return ONLY raw JSON, no fences: {"basePrompt": string, "scenes": [{"cue": string, "prompt": string}]}. basePrompt describes ONE consistent anonymized AI fitness presenter character in a bold comic-book/superhero illustration style — thick black outlines, cel-shaded flat coloring, muscular action-figure proportions, like a Marvel/DC-style hero illustration, NOT a photorealistic 3D render or photo. The head is a smooth, featureless mask (like a superhero mask) with simple angular eye-slit shapes — this is a deliberate stylistic choice that reads as heroic/mysterious in comic art, not literal skin. Describe build, mask/head styling, outfit, color palette, and this comic-illustration art style in 1-2 sentences — this is the character every scene reuses. Each scene prompt restates the base character briefly plus the specific action/pose/setting for that cue — keep each scene prompt under 40 words so the full response stays compact, and never ask for any words, labels, or text to appear in the image itself (AI image models render text unreliably — misspellings and garbled letters are common). CRITICAL: never describe a multi-panel, split-screen, or side-by-side comparison in a single prompt — AI image models render every panel nearly identical. If a cue implies comparing several variations (e.g. narrow/medium/wide grip), split it into that many SEPARATE single-subject scene entries instead — one clean image per variation, distinguished visually (camera angle, framing) rather than by on-image text. Ready to paste directly into an image generator.`;
+      const sys = `You extract every [SCENE: ...] cue from a fitness video script and prepare AI image-generation prompts. Return ONLY raw JSON, no fences: {"basePrompt": string, "scenes": [{"cue": string, "prompt": string}]}. basePrompt describes ONE consistent anonymized AI fitness presenter character styled as a polished 3D-rendered vinyl toy figure / video game character model — use explicit rendering-engine language like "3D render, Unreal Engine style, smooth subsurface-scattered plastic material, studio softbox lighting" to push toward a glossy, clean CGI look, NOT a flat illustration or comic. Uniform matte-to-semi-glossy monochrome grey skin all over (not tan, not multiple colors), muscular athletic build. NO comic-book ink outlines, NO cross-hatching, NO dramatic glowing eyes, NO gritty/dark look, NO hand-drawn/2D-illustration look. The head is a smooth featureless mask with two simple flat white oval eye-shapes and nothing else (no mouth, no nose, no angular slits, no logo or letters on it). Background: simple, clean, softly-lit — a plain light-grey studio backdrop or a softly blurred gym, never busy or cluttered, so the character stays the clear focal point. Describe build, this exact 3D-render vinyl-toy style, and the clean lighting/background in 1-2 sentences — this is the character every scene reuses, and every scene prompt must repeat this styling language close to verbatim so every image renders as the same consistent character. Each scene prompt restates the base character briefly plus the specific action/pose/setting for that cue — keep each scene prompt under 45 words so the full response stays compact, and never ask for any words, labels, or text to appear in the image itself (AI image models render text unreliably — misspellings and garbled letters are common). CRITICAL: never describe a multi-panel, split-screen, or side-by-side comparison in a single prompt — AI image models render every panel nearly identical. If a cue implies comparing several variations (e.g. narrow/medium/wide grip), split it into that many SEPARATE single-subject scene entries instead — one clean image per variation, distinguished visually (camera angle, framing) rather than by on-image text. Ready to paste directly into an image generator.`;
       const user = `Title: ${selectedConcept?.title || ""}\nNiche: ${niche}\nScript:\n${script}`;
       const { text } = await askClaude(user, sys, { maxTokens: 4000 });
       const parsed = extractJson(text);
@@ -331,6 +334,11 @@ export default function App() {
   }
 
   async function genImage(key, prompt, isRetry) {
+    if (key === "scene-0" && channelName.trim() && channelLogo && useLogoForIntro) {
+      setGenImages((prev) => ({ ...prev, [key]: channelLogo }));
+      setErrImages((prev) => ({ ...prev, [key]: "" }));
+      return true;
+    }
     setLoadingImages((prev) => ({ ...prev, [key]: true }));
     if (!isRetry) setErrImages((prev) => ({ ...prev, [key]: "" }));
     try {
@@ -422,6 +430,22 @@ export default function App() {
     }
   }
 
+  function chunkTextForTTS(text, maxChars) {
+    const sentences = text.match(/[^.!?]+[.!?]+(\s|$)/g) || [text];
+    const chunks = [];
+    let current = "";
+    for (const s of sentences) {
+      if ((current + s).length > maxChars && current) {
+        chunks.push(current.trim());
+        current = s;
+      } else {
+        current += s;
+      }
+    }
+    if (current.trim()) chunks.push(current.trim());
+    return chunks;
+  }
+
   async function genAudioOpenAI() {
     if (!script) return;
     setLoadingAudio(true);
@@ -429,19 +453,29 @@ export default function App() {
     setAudioUrl(null);
     try {
       const cleanScript = script.replace(/\[SCENE:[^\]]*\]/g, " ").replace(/\s+/g, " ").trim();
-      const res = await fetch("/api/generate-voice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: cleanScript, voice: oaiVoice, instructions: voiceDirection || undefined }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Request failed (" + res.status + ")");
+      // gpt-4o-mini-tts can quietly stop early on long input even under its
+      // documented limits — chunking sidesteps that regardless of cause.
+      const chunks = chunkTextForTTS(cleanScript, 500);
+      const blobs = [];
+      for (let i = 0; i < chunks.length; i++) {
+        if (chunks.length > 1) setAudioProgress(`Generating part ${i + 1} of ${chunks.length}…`);
+        const res = await fetch("/api/generate-voice", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: chunks[i], voice: oaiVoice, instructions: voiceDirection || undefined }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(`Part ${i + 1}/${chunks.length} failed: ` + (data.error || "Request failed (" + res.status + ")"));
+        }
+        blobs.push(await res.blob());
       }
-      const blob = await res.blob();
-      setAudioUrl(URL.createObjectURL(blob));
+      const combined = new Blob(blobs, { type: "audio/mpeg" });
+      setAudioUrl(URL.createObjectURL(combined));
+      setAudioProgress("");
     } catch (e) {
       setErrAudio(e.message || "Voiceover generation failed.");
+      setAudioProgress("");
     } finally {
       setLoadingAudio(false);
     }
@@ -492,24 +526,6 @@ export default function App() {
       const perImage = duration / imgs.length;
       const transitionTime = Math.min(0.5, perImage * 0.3);
 
-      // Captions: split the spoken script into short chunks and time them
-      // proportionally by word count across the audio's duration. Not
-      // perfectly synced to the actual TTS timing, but close enough to read
-      // naturally, and far better than a blank screen.
-      const cleanScript = script.replace(/\[SCENE:[^\]]*\]/g, " ").replace(/\s+/g, " ").trim();
-      const words = cleanScript.split(" ").filter(Boolean);
-      const wordsPerCaption = 6;
-      const totalWords = words.length || 1;
-      let cumWords = 0;
-      const captions = [];
-      for (let i = 0; i < words.length; i += wordsPerCaption) {
-        const chunkWords = words.slice(i, i + wordsPerCaption);
-        const start = (cumWords / totalWords) * duration;
-        cumWords += chunkWords.length;
-        const end = (cumWords / totalWords) * duration;
-        captions.push({ text: chunkWords.join(" ").toUpperCase(), start, end });
-      }
-
       const canvas = canvasRef.current;
       const cw = 1024;
       const ch = 1536; // portrait — matches the 9:16-ish Shorts/TikTok images
@@ -553,23 +569,6 @@ export default function App() {
 
       setAssembleProgress("Recording…");
 
-      function wrapText(text, maxWidth) {
-        const wds = text.split(" ");
-        const lines = [];
-        let current = "";
-        for (const w of wds) {
-          const test = current ? current + " " + w : w;
-          if (ctx.measureText(test).width > maxWidth && current) {
-            lines.push(current);
-            current = w;
-          } else {
-            current = test;
-          }
-        }
-        if (current) lines.push(current);
-        return lines;
-      }
-
       function drawFrame() {
         const t = Math.min(audio.currentTime, duration);
         const idx = Math.min(imgs.length - 1, Math.floor(t / perImage));
@@ -602,52 +601,6 @@ export default function App() {
           const fadeT = (localT - (perImage - transitionTime)) / transitionTime;
           const [npx, npy] = panDirs[idx + 1];
           drawImg(nextImg, fadeT, npx, npy, 0);
-        }
-
-        // Speech bubble overlay — comic-style bubble with a tail, matching
-        // the illustrated character art style, instead of a plain caption bar.
-        const activeCaption = captions.find((c) => t >= c.start && t < c.end);
-        if (activeCaption) {
-          ctx.font = "bold 44px Arial, sans-serif";
-          const lines = wrapText(activeCaption.text, cw - 220);
-          const lineHeight = 54;
-          const paddingX = 40;
-          const paddingY = 34;
-          const boxWidth = cw - 140;
-          const boxHeight = lines.length * lineHeight + paddingY * 2;
-          const boxX = 70;
-          const boxY = 90;
-          const radius = 28;
-          const tailX = boxX + boxWidth * 0.28;
-
-          ctx.save();
-          ctx.beginPath();
-          ctx.moveTo(boxX + radius, boxY);
-          ctx.lineTo(boxX + boxWidth - radius, boxY);
-          ctx.quadraticCurveTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + radius);
-          ctx.lineTo(boxX + boxWidth, boxY + boxHeight - radius);
-          ctx.quadraticCurveTo(boxX + boxWidth, boxY + boxHeight, boxX + boxWidth - radius, boxY + boxHeight);
-          ctx.lineTo(tailX + 50, boxY + boxHeight);
-          ctx.lineTo(tailX, boxY + boxHeight + 46);
-          ctx.lineTo(tailX - 10, boxY + boxHeight);
-          ctx.lineTo(boxX + radius, boxY + boxHeight);
-          ctx.quadraticCurveTo(boxX, boxY + boxHeight, boxX, boxY + boxHeight - radius);
-          ctx.lineTo(boxX, boxY + radius);
-          ctx.quadraticCurveTo(boxX, boxY, boxX + radius, boxY);
-          ctx.closePath();
-          ctx.fillStyle = "#FFFFFF";
-          ctx.fill();
-          ctx.lineWidth = 6;
-          ctx.strokeStyle = "#000000";
-          ctx.stroke();
-          ctx.restore();
-
-          ctx.fillStyle = "#000000";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "top";
-          lines.forEach((line, i) => {
-            ctx.fillText(line, boxX + boxWidth / 2, boxY + paddingY + i * lineHeight, boxWidth - paddingX);
-          });
         }
 
         if (!audio.ended && !audio.paused) {
@@ -769,6 +722,52 @@ export default function App() {
               <p className="text-[11px] mt-1.5" style={{ color: C.boneDim }}>
                 Leave blank to skip the intro entirely.
               </p>
+
+              <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${C.line}` }}>
+                <label className="f-mono text-[11px] block mb-1.5" style={{ color: C.tape }}>LOGO (optional)</label>
+                <div className="flex items-center gap-3">
+                  {channelLogo && (
+                    <img src={channelLogo} alt="Logo preview" className="rounded" style={{ width: 44, height: 44, objectFit: "contain", background: C.panel, border: `1px solid ${C.line}` }} />
+                  )}
+                  <label
+                    className="f-mono text-xs px-3 py-2 rounded-lg cursor-pointer"
+                    style={{ background: C.panel, color: C.boneDim, border: `1px solid ${C.line}` }}
+                  >
+                    {channelLogo ? "REPLACE" : "UPLOAD LOGO"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = () => setChannelLogo(reader.result);
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                  </label>
+                  {channelLogo && (
+                    <button
+                      onClick={() => setChannelLogo(null)}
+                      className="f-mono text-xs px-2 py-2"
+                      style={{ color: C.rec }}
+                    >
+                      REMOVE
+                    </button>
+                  )}
+                </div>
+                {channelLogo && (
+                  <label className="flex items-center gap-2 mt-2 text-[11px]" style={{ color: C.boneDim }}>
+                    <input
+                      type="checkbox"
+                      checked={useLogoForIntro}
+                      onChange={(e) => setUseLogoForIntro(e.target.checked)}
+                    />
+                    Use this logo for the intro scene instead of AI-generating one
+                  </label>
+                )}
+              </div>
             </div>
 
             <label className="f-mono text-[11px] block mb-1" style={{ color: C.tape }}>NICHE / TOPIC</label>
@@ -1083,6 +1082,7 @@ export default function App() {
                   <PrimaryButton onClick={genAudio} loading={loadingAudio} icon={Play} disabled={voiceProvider === "elevenlabs" && !elKey.trim()}>
                     GENERATE VOICEOVER
                   </PrimaryButton>
+                  {audioProgress && <p className="text-[11px] mt-1.5" style={{ color: C.boneDim }}>{audioProgress}</p>}
                   {errAudio && <p className="text-xs mt-2" style={{ color: C.rec }}>{errAudio}</p>}
                   {audioUrl && <audio controls src={audioUrl} className="w-full mt-3" />}
                 </div>
@@ -1091,7 +1091,7 @@ export default function App() {
                   <div className="mt-5 pt-4" style={{ borderTop: `1px solid ${C.line}` }}>
                     <span className="f-mono text-[11px] block mb-2" style={{ color: C.tape }}>ASSEMBLE VIDEO (BETA)</span>
                     <p className="text-xs mb-3" style={{ color: C.boneDim }}>
-                      Stitches your generated scene images from CH.03 with this voiceover — pan + zoom transitions, burned-in captions, timed to the audio length. Runs in your browser, works best in Chrome or Firefox on desktop. Stay on this screen while it processes. More scene images = more variety, so generate as many as you can in CH.03 first.
+                      Stitches your generated scene images from CH.03 with this voiceover — pan + zoom transitions, timed to the audio length. Runs in your browser, works best in Chrome or Firefox on desktop. Stay on this screen while it processes. More scene images = more variety, so generate as many as you can in CH.03 first.
                     </p>
                     <PrimaryButton onClick={assembleVideo} loading={assembling} icon={Film}>
                       STITCH VIDEO

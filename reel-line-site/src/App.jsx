@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Circle, Copy, Check, Loader2, Play, RefreshCw,
-  Sparkles, FileText, Image as ImageIcon, Mic, LayoutTemplate, ArrowRight
+  Sparkles, FileText, Image as ImageIcon, Mic, LayoutTemplate, ArrowRight, Film, Download
 } from "lucide-react";
 
 // ---------- palette / tokens ----------
@@ -191,6 +191,9 @@ export default function App() {
   const [visuals, setVisuals] = useState(null);
   const [loadingVisuals, setLoadingVisuals] = useState(false);
   const [errVisuals, setErrVisuals] = useState("");
+  const [genImages, setGenImages] = useState({}); // key -> data URL
+  const [loadingImages, setLoadingImages] = useState({}); // key -> bool
+  const [errImages, setErrImages] = useState({}); // key -> string
 
   const [voiceDirection, setVoiceDirection] = useState("");
   const [loadingVoiceDir, setLoadingVoiceDir] = useState(false);
@@ -203,6 +206,12 @@ export default function App() {
   const [thumbBrief, setThumbBrief] = useState("");
   const [loadingThumb, setLoadingThumb] = useState(false);
   const [errThumb, setErrThumb] = useState("");
+
+  const [assembling, setAssembling] = useState(false);
+  const [assembleProgress, setAssembleProgress] = useState("");
+  const [assembledVideoUrl, setAssembledVideoUrl] = useState(null);
+  const [errAssemble, setErrAssemble] = useState("");
+  const canvasRef = useRef(null);
 
   const done = {
     concept: !!selectedConcept,
@@ -279,15 +288,34 @@ export default function App() {
     setLoadingVisuals(true);
     setErrVisuals("");
     try {
-      const sys = `You extract every [SCENE: ...] cue from a fitness video script and prepare AI image-generation prompts for Whisk. Return ONLY raw JSON, no fences: {"basePrompt": string, "scenes": [{"cue": string, "prompt": string}]}. basePrompt describes ONE consistent faceless/anonymized AI fitness presenter avatar (build, styling, lighting, art style) matching the niche and title's tone — this is the character every scene reuses. Each scene prompt restates the base character briefly plus the specific action/pose/setting for that cue, ready to paste directly into an image generator.`;
+      const sys = `You extract every [SCENE: ...] cue from a fitness video script and prepare AI image-generation prompts. Return ONLY raw JSON, no fences: {"basePrompt": string, "scenes": [{"cue": string, "prompt": string}]}. basePrompt describes ONE consistent faceless/anonymized AI fitness presenter avatar (build, styling, lighting, art style) matching the niche and title's tone — this is the character every scene reuses, in 1-2 sentences. Each scene prompt restates the base character briefly plus the specific action/pose/setting for that cue — keep each scene prompt under 40 words so the full response stays compact. Ready to paste directly into an image generator.`;
       const user = `Title: ${selectedConcept?.title || ""}\nNiche: ${niche}\nScript:\n${script}`;
-      const { text } = await askClaude(user, sys, { maxTokens: 3000 });
+      const { text } = await askClaude(user, sys, { maxTokens: 4000 });
       const parsed = extractJson(text);
       setVisuals(parsed);
     } catch (e) {
       setErrVisuals(e.message || "Something went wrong.");
     } finally {
       setLoadingVisuals(false);
+    }
+  }
+
+  async function genImage(key, prompt) {
+    setLoadingImages((prev) => ({ ...prev, [key]: true }));
+    setErrImages((prev) => ({ ...prev, [key]: "" }));
+    try {
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Request failed (" + res.status + ")");
+      setGenImages((prev) => ({ ...prev, [key]: data.image }));
+    } catch (e) {
+      setErrImages((prev) => ({ ...prev, [key]: e.message || "Image generation failed." }));
+    } finally {
+      setLoadingImages((prev) => ({ ...prev, [key]: false }));
     }
   }
 
@@ -328,6 +356,128 @@ export default function App() {
       setErrAudio(e.message || "Voiceover generation failed.");
     } finally {
       setLoadingAudio(false);
+    }
+  }
+
+  async function assembleVideo() {
+    setErrAssemble("");
+    setAssembledVideoUrl(null);
+
+    const orderedKeys = (visuals?.scenes || []).map((_, i) => `scene-${i}`).filter((k) => genImages[k]);
+    if (orderedKeys.length === 0) {
+      setErrAssemble("Generate at least one scene image in CH.03 first.");
+      return;
+    }
+    if (!audioUrl) {
+      setErrAssemble("Generate the voiceover audio above first.");
+      return;
+    }
+
+    setAssembling(true);
+    setAssembleProgress("Loading images…");
+
+    try {
+      const imgs = await Promise.all(
+        orderedKeys.map(
+          (k) =>
+            new Promise((resolve, reject) => {
+              const img = new Image();
+              img.onload = () => resolve(img);
+              img.onerror = () => reject(new Error("Couldn't load one of the generated images."));
+              img.src = genImages[k];
+            })
+        )
+      );
+
+      const audio = new Audio(audioUrl);
+      audio.crossOrigin = "anonymous";
+      await new Promise((resolve, reject) => {
+        audio.addEventListener("loadedmetadata", resolve, { once: true });
+        audio.addEventListener("error", () => reject(new Error("Couldn't load the voiceover audio.")), { once: true });
+      });
+
+      const duration = audio.duration;
+      const perImage = duration / imgs.length;
+      const transitionTime = Math.min(0.5, perImage * 0.3);
+
+      const canvas = canvasRef.current;
+      const size = 1024;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+
+      let audioStream;
+      try {
+        audioStream = audio.captureStream ? audio.captureStream() : audio.mozCaptureStream();
+      } catch (e) {
+        throw new Error("This browser can't capture audio for recording — try Chrome or Firefox on desktop.");
+      }
+      if (!audioStream || audioStream.getAudioTracks().length === 0) {
+        throw new Error("This browser can't capture audio for recording — try Chrome or Firefox on desktop.");
+      }
+
+      const canvasStream = canvas.captureStream(30);
+      const combined = new MediaStream([...canvasStream.getVideoTracks(), ...audioStream.getAudioTracks()]);
+
+      const mimeType = window.MediaRecorder && MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
+        ? "video/webm;codecs=vp9,opus"
+        : "video/webm";
+      const recorder = new MediaRecorder(combined, { mimeType });
+      const chunks = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+      const stopped = new Promise((resolve) => {
+        recorder.onstop = () => {
+          const blob = new Blob(chunks, { type: "video/webm" });
+          setAssembledVideoUrl(URL.createObjectURL(blob));
+          resolve();
+        };
+      });
+
+      setAssembleProgress("Recording…");
+
+      function drawFrame() {
+        const t = audio.currentTime;
+        const idx = Math.min(imgs.length - 1, Math.floor(t / perImage));
+        const localT = t - idx * perImage;
+        const img = imgs[idx];
+        const nextImg = imgs[idx + 1];
+
+        ctx.clearRect(0, 0, size, size);
+
+        const drawImg = (image, alpha) => {
+          const zoom = 1 + 0.08 * (localT / perImage);
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          const w = size * zoom;
+          const h = size * zoom;
+          ctx.drawImage(image, (size - w) / 2, (size - h) / 2, w, h);
+          ctx.restore();
+        };
+
+        drawImg(img, 1);
+        if (nextImg && localT > perImage - transitionTime) {
+          const fadeT = (localT - (perImage - transitionTime)) / transitionTime;
+          drawImg(nextImg, fadeT);
+        }
+
+        if (!audio.ended && !audio.paused) {
+          requestAnimationFrame(drawFrame);
+        }
+      }
+
+      recorder.start();
+      await audio.play();
+      requestAnimationFrame(drawFrame);
+
+      await new Promise((resolve) => audio.addEventListener("ended", resolve, { once: true }));
+      recorder.stop();
+      await stopped;
+      setAssembleProgress("Done");
+    } catch (e) {
+      setErrAssemble(e.message || "Couldn't assemble the video in this browser.");
+    } finally {
+      setAssembling(false);
     }
   }
 
@@ -522,7 +672,7 @@ export default function App() {
             ) : (
               <>
                 <p className="text-sm mb-3" style={{ color: C.boneDim }}>
-                  Whisk has no public API, so these prompts are copy-paste — one base character, then a prompt per scene cue.
+                  Generates real images via GPT Image 1 Mini (low quality — cheap and fast for testing). Prompts are still copy-ready for Whisk too if you'd rather generate there.
                 </p>
                 <PrimaryButton onClick={genVisuals} loading={loadingVisuals} icon={ImageIcon}>
                   {visuals ? "REGENERATE PROMPTS" : "GENERATE VISUAL PROMPTS"}
@@ -536,18 +686,47 @@ export default function App() {
                         <span className="f-mono text-[11px]" style={{ color: C.tape }}>BASE CHARACTER</span>
                         <CopyBtn text={visuals.basePrompt} />
                       </div>
-                      <p className="text-xs" style={{ color: C.bone }}>{visuals.basePrompt}</p>
+                      <p className="text-xs mb-2" style={{ color: C.bone }}>{visuals.basePrompt}</p>
+                      <button
+                        onClick={() => genImage("base", visuals.basePrompt)}
+                        disabled={loadingImages.base}
+                        className="f-mono flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-opacity"
+                        style={{ background: C.tape, color: "#0B0D0F", opacity: loadingImages.base ? 0.5 : 1 }}
+                      >
+                        {loadingImages.base ? <Loader2 size={12} className="animate-spin" /> : <ImageIcon size={12} />}
+                        {loadingImages.base ? "GENERATING…" : genImages.base ? "REGENERATE IMAGE" : "GENERATE IMAGE"}
+                      </button>
+                      {errImages.base && <p className="text-[11px] mt-1" style={{ color: C.rec }}>{errImages.base}</p>}
+                      {genImages.base && (
+                        <img src={genImages.base} alt="" className="mt-2 rounded-lg w-full" style={{ border: `1px solid ${C.line}` }} />
+                      )}
                     </div>
-                    {visuals.scenes?.map((s, i) => (
-                      <div key={i} className="rounded-lg p-3" style={{ background: C.bg, border: `1px solid ${C.line}` }}>
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="f-mono text-[11px]" style={{ color: C.boneDim }}>SCENE {String(i + 1).padStart(2, "0")}</span>
-                          <CopyBtn text={s.prompt} />
+                    {visuals.scenes?.map((s, i) => {
+                      const key = `scene-${i}`;
+                      return (
+                        <div key={i} className="rounded-lg p-3" style={{ background: C.bg, border: `1px solid ${C.line}` }}>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="f-mono text-[11px]" style={{ color: C.boneDim }}>SCENE {String(i + 1).padStart(2, "0")}</span>
+                            <CopyBtn text={s.prompt} />
+                          </div>
+                          <p className="text-[11px] italic mb-1" style={{ color: C.boneDim }}>{s.cue}</p>
+                          <p className="text-xs mb-2" style={{ color: C.bone }}>{s.prompt}</p>
+                          <button
+                            onClick={() => genImage(key, s.prompt)}
+                            disabled={loadingImages[key]}
+                            className="f-mono flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-opacity"
+                            style={{ background: C.tape, color: "#0B0D0F", opacity: loadingImages[key] ? 0.5 : 1 }}
+                          >
+                            {loadingImages[key] ? <Loader2 size={12} className="animate-spin" /> : <ImageIcon size={12} />}
+                            {loadingImages[key] ? "GENERATING…" : genImages[key] ? "REGENERATE IMAGE" : "GENERATE IMAGE"}
+                          </button>
+                          {errImages[key] && <p className="text-[11px] mt-1" style={{ color: C.rec }}>{errImages[key]}</p>}
+                          {genImages[key] && (
+                            <img src={genImages[key]} alt="" className="mt-2 rounded-lg w-full" style={{ border: `1px solid ${C.line}` }} />
+                          )}
                         </div>
-                        <p className="text-[11px] italic mb-1" style={{ color: C.boneDim }}>{s.cue}</p>
-                        <p className="text-xs" style={{ color: C.bone }}>{s.prompt}</p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                 {visuals && (
@@ -605,6 +784,34 @@ export default function App() {
                   {errAudio && <p className="text-xs mt-2" style={{ color: C.rec }}>{errAudio}</p>}
                   {audioUrl && <audio controls src={audioUrl} className="w-full mt-3" />}
                 </div>
+
+                {audioUrl && (
+                  <div className="mt-5 pt-4" style={{ borderTop: `1px solid ${C.line}` }}>
+                    <span className="f-mono text-[11px] block mb-2" style={{ color: C.tape }}>ASSEMBLE VIDEO (BETA)</span>
+                    <p className="text-xs mb-3" style={{ color: C.boneDim }}>
+                      Stitches your generated scene images from CH.03 with this voiceover into a slideshow — zoom + crossfade transitions, timed to the audio length. Runs in your browser, works best in Chrome or Firefox on desktop. Stay on this screen while it processes.
+                    </p>
+                    <PrimaryButton onClick={assembleVideo} loading={assembling} icon={Film}>
+                      STITCH VIDEO
+                    </PrimaryButton>
+                    {assembling && <p className="text-[11px] mt-2" style={{ color: C.boneDim }}>{assembleProgress}</p>}
+                    {errAssemble && <p className="text-xs mt-2" style={{ color: C.rec }}>{errAssemble}</p>}
+                    {assembledVideoUrl && (
+                      <div className="mt-3">
+                        <video controls src={assembledVideoUrl} className="w-full rounded-lg" style={{ border: `1px solid ${C.line}` }} />
+                        <a
+                          href={assembledVideoUrl}
+                          download="reel-line-video.webm"
+                          className="f-mono inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded text-xs"
+                          style={{ background: C.green, color: "#0B0D0F" }}
+                        >
+                          <Download size={12} /> DOWNLOAD VIDEO
+                        </a>
+                      </div>
+                    )}
+                    <canvas ref={canvasRef} style={{ display: "none" }} />
+                  </div>
+                )}
 
                 {(voiceDirection || audioUrl) && (
                   <div className="mt-4 flex justify-end">

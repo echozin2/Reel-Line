@@ -135,6 +135,7 @@ export default function App() {
   const [niche, setNiche] = useState("");
   const [angle, setAngle] = useState("");
   const [loadingNiche, setLoadingNiche] = useState(false);
+  const [contentStyle, setContentStyle] = useState("story"); // "story" | "research"
 
   const [concepts, setConcepts] = useState(null);
   const [selectedConcept, setSelectedConcept] = useState(null);
@@ -196,7 +197,9 @@ export default function App() {
     setConcepts(null);
     setSelectedConcept(null);
     try {
-      const sys = `You are a YouTube strategist for faceless AI-fitness channels. You reverse-engineer what gets clicks BEFORE any script exists. Return ONLY raw JSON, no markdown fences, no commentary. Schema: [{"title": string, "thumbnailConcept": string, "hook": string}] with exactly 3 items. Titles make a bold, specific promise. thumbnailConcept describes a single dynamic image concept (pose/composition/before-after) in one sentence. hook is the first line the video should open with.`;
+      const sys = contentStyle === "research"
+        ? `You are a YouTube strategist for faceless AI-fitness channels who only makes claims backed by well-established, general exercise science (progressive overload, hip-hinge mechanics, EPOC, protein synthesis, etc.) — NOT invented studies, NOT fabricated statistics, NOT specific numbers no one could verify. Never write a first-person "I did X for 30 days" narrative — you have no body and did nothing. Frame titles around real, widely-accepted training principles instead. Return ONLY raw JSON, no markdown fences, no commentary. Schema: [{"title": string, "thumbnailConcept": string, "hook": string}] with exactly 3 items. Titles make a bold, specific promise grounded in real training science. thumbnailConcept describes a single dynamic image concept (diagram/demonstration/comparison) in one sentence. hook is the first line the video should open with, and must not claim a personal result that didn't happen.`
+        : `You are a YouTube strategist for faceless AI-fitness channels. You reverse-engineer what gets clicks BEFORE any script exists. Return ONLY raw JSON, no markdown fences, no commentary. Schema: [{"title": string, "thumbnailConcept": string, "hook": string}] with exactly 3 items. Titles make a bold, specific promise. thumbnailConcept describes a single dynamic image concept (pose/composition/before-after) in one sentence. hook is the first line the video should open with.`;
       const user = `Niche: ${useNiche}\n${useAngle ? "Angle/constraint: " + useAngle : ""}\nGenerate 3 distinct title + thumbnail concept pairs.`;
       const text = await askClaude(user, sys);
       const parsed = JSON.parse(stripFences(text));
@@ -213,7 +216,9 @@ export default function App() {
     setLoadingScript(true);
     setErrScript("");
     try {
-      const sys = `You write scripts for faceless AI-fitness YouTube videos. The title and thumbnail are already locked — the script's only job is to deliver on that exact promise, starting with a hook in the first 10 seconds. Every 15-25 words, insert a bracketed visual cue like [SCENE: description of what's on screen] so an editor can generate matching AI visuals later. Write 550-750 words. Plain text only, no markdown headers.`;
+      const sys = contentStyle === "research"
+        ? `You write scripts for faceless AI-fitness YouTube videos that are grounded in real, well-established exercise science — NOT invented studies, NOT fabricated statistics, NOT a fake personal "I did this" narrative. Explain the real mechanism behind the claim (e.g. how progressive overload, hip-hinge mechanics, or EPOC actually work) in plain language. If you're not certain a specific number or study is real, don't state it — describe the general, textbook-level finding instead. The title and thumbnail are already locked — the script's only job is to deliver on that exact promise, starting with a hook in the first 10 seconds. Every 15-25 words, insert a bracketed visual cue like [SCENE: description of what's on screen] so an editor can generate matching AI visuals later. Write 550-750 words. Plain text only, no markdown headers.`
+        : `You write scripts for faceless AI-fitness YouTube videos. The title and thumbnail are already locked — the script's only job is to deliver on that exact promise, starting with a hook in the first 10 seconds. Every 15-25 words, insert a bracketed visual cue like [SCENE: description of what's on screen] so an editor can generate matching AI visuals later. Write 550-750 words. Plain text only, no markdown headers.`;
       const user = `Title: ${selectedConcept.title}\nThumbnail concept: ${selectedConcept.thumbnailConcept}\nOpening hook: ${selectedConcept.hook}\nNiche: ${niche}`;
       const text = await askClaude(user, sys, 3000);
       setScript(text);
@@ -351,6 +356,37 @@ export default function App() {
               className="f-body w-full rounded-lg px-3 py-2.5 text-sm outline-none mb-4"
               style={{ background: C.bg, color: C.bone, border: `1px solid ${C.line}` }}
             />
+
+            <label className="f-mono text-[11px] block mb-1" style={{ color: C.tape }}>CONTENT STYLE</label>
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setContentStyle("story")}
+                className="f-mono flex-1 text-xs px-3 py-2 rounded-lg transition-colors"
+                style={{
+                  background: contentStyle === "story" ? C.tape : C.bg,
+                  color: contentStyle === "story" ? "#0B0D0F" : C.boneDim,
+                  border: `1px solid ${contentStyle === "story" ? C.tape : C.line}`,
+                }}
+              >
+                PERSONAL STORY
+              </button>
+              <button
+                onClick={() => setContentStyle("research")}
+                className="f-mono flex-1 text-xs px-3 py-2 rounded-lg transition-colors"
+                style={{
+                  background: contentStyle === "research" ? C.tape : C.bg,
+                  color: contentStyle === "research" ? "#0B0D0F" : C.boneDim,
+                  border: `1px solid ${contentStyle === "research" ? C.tape : C.line}`,
+                }}
+              >
+                RESEARCH-BACKED
+              </button>
+            </div>
+            <p className="text-[11px] mb-4" style={{ color: C.boneDim }}>
+              {contentStyle === "research"
+                ? "Grounded in established exercise-science principles — no invented studies, no fake \"I did X for 30 days\" claims."
+                : "Dramatized first-person framing (e.g. \"I did X for 30 days\") — a proven attention pattern, but not a real account of anything."}
+            </p>
 
             <div className="flex flex-wrap gap-2">
               <PrimaryButton onClick={() => genConcepts()} loading={loadingConcepts} disabled={!niche.trim()} icon={Sparkles}>

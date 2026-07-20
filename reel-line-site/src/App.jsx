@@ -17,6 +17,10 @@ const C = {
   green: "#4C9F70",
 };
 
+// Bump this every time a new App.jsx is uploaded — shows in the top bar
+// so it's obvious at a glance whether the live site matches the latest file.
+const BUILD = "16";
+
 const STAGES = [
   { id: "concept", ch: "CH.01", title: "Hook & Package", icon: Sparkles },
   { id: "script", ch: "CH.02", title: "Script", icon: FileText },
@@ -830,7 +834,7 @@ CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence
         <div className="f-display text-sm font-semibold tracking-tight" style={{ color: C.bone }}>
           REEL LINE <span style={{ color: C.tape }}>·</span> <span style={{ color: C.boneDim, fontWeight: 500 }}>faceless fitness pipeline</span>
         </div>
-        <div className="f-mono text-xs" style={{ color: C.boneDim }}>05 STAGES</div>
+        <div className="f-mono text-xs" style={{ color: C.boneDim }}>BUILD {BUILD}</div>
       </div>
 
       <div className="flex overflow-x-auto px-4 py-3 gap-2" style={{ borderBottom: `1px solid ${C.line}` }}>
@@ -855,6 +859,12 @@ CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence
         {activeIdx === 0 && (
           <div className="rounded-xl p-5" style={{ background: C.panel, border: `1px solid ${C.line}` }}>
             <StageHeader stage={STAGES[0]} active done={done.concept} />
+            <div
+              className="inline-block f-mono text-xs font-bold px-2.5 py-1 rounded mb-3"
+              style={{ background: C.tape, color: "#060A0E" }}
+            >
+              BUILD {BUILD}
+            </div>
             <p className="text-sm mb-4" style={{ color: C.boneDim }}>Package first, script never. Give a niche and we reverse-engineer titles people click.</p>
 
             <div className="rounded-lg p-3 mb-4" style={{ background: C.bg, border: `1px solid ${C.line}` }}>

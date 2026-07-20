@@ -6,14 +6,14 @@ import {
 
 // ---------- palette / tokens ----------
 const C = {
-  bg: "#0B0D0F",
-  panel: "#15181B",
-  panelAlt: "#1B1F23",
-  line: "#2A2F34",
-  bone: "#EDEAE2",
-  boneDim: "#9AA0A6",
+  bg: "#060A0E",
+  panel: "#0E161D",
+  panelAlt: "#141F28",
+  line: "#1F2E38",
+  bone: "#EAF4F4",
+  boneDim: "#8FA3AB",
   rec: "#FF3B30",
-  tape: "#F5C518",
+  tape: "#2DE5E0",
   green: "#4C9F70",
 };
 
@@ -193,6 +193,7 @@ export default function App() {
   const [errScript, setErrScript] = useState("");
 
   const [visuals, setVisuals] = useState(null);
+  const [customCharacter, setCustomCharacter] = useState("");
   const [loadingVisuals, setLoadingVisuals] = useState(false);
   const [errVisuals, setErrVisuals] = useState("");
   const [genImages, setGenImages] = useState({}); // key -> data URL
@@ -303,8 +304,8 @@ export default function App() {
         ? `The script's very last line must be close to verbatim: "Well, that's it — and remember... ${channelTagline.trim().toUpperCase()}... catch you next time!" (keep that rhythm and structure; light wording tweaks are fine, but the tagline shout and "catch you next time" close must stay).`
         : `Close with a short, natural sign-off line specific to this video's topic.`;
       const sys = contentStyle === "research"
-        ? `You write scripts for faceless AI-fitness YouTube videos. You MUST call the web_search tool at least twice before writing the script — do this even if you're already confident, because the goal is real, checkable sources, not just what you already know. Search for credible sources on the specific claims this script needs — NOT invented studies, NOT fabricated statistics, NOT a fake personal "I did this" narrative. Explain the real mechanism behind each claim (e.g. how progressive overload, hip-hinge mechanics, or EPOC actually work) in plain language, based on what you found. If search doesn't turn up something solid, state the general textbook-level finding instead of inventing specifics. ${introInstruction} The title and thumbnail are already locked — the script's only job is to deliver on that exact promise. CRITICAL REQUIREMENT: insert AT LEAST 8 bracketed visual cues total (up to 10), like [SCENE: description of what's on screen], spread evenly across the whole script (roughly one every 60-90 words) so an editor can generate matching AI visuals later. Fewer than 8 is a failed response — never more than 10. Write 550-750 words, and always end with a real conclusion — never let the script just trail off mid-explanation. The final 40-60 words must: (1) tie the payoff directly back to the title/hook's promise, (2) give one clear, concrete takeaway the viewer can act on right now, and (3) ${outroInstruction} After searching, output ONLY the final script as plain text — no markdown headers, no search narration, no commentary. BEFORE YOU FINISH: count your [SCENE: ...] cues. If there are fewer than 8, you are not done — go back and add more throughout the script until you have at least 8 (up to 10). A script with fewer than 8 scene cues is incomplete and unacceptable.`
-        : `You write scripts for faceless AI-fitness YouTube videos. ${introInstruction} The title and thumbnail are already locked — the script's only job is to deliver on that exact promise. CRITICAL REQUIREMENT: insert AT LEAST 8 bracketed visual cues total (up to 10), like [SCENE: description of what's on screen], spread evenly across the whole script (roughly one every 60-90 words) so an editor can generate matching AI visuals later. Fewer than 8 is a failed response — never more than 10. Write 550-750 words, and always end with a real conclusion — never let the script just trail off mid-explanation. The final 40-60 words must: (1) tie the payoff directly back to the title/hook's promise, (2) give one clear, concrete takeaway the viewer can act on right now, and (3) ${outroInstruction} Plain text only, no markdown headers. BEFORE YOU FINISH: count your [SCENE: ...] cues. If there are fewer than 8, you are not done — go back and add more throughout the script until you have at least 8 (up to 10). A script with fewer than 8 scene cues is incomplete and unacceptable.`;
+        ? `You write scripts for faceless AI-fitness YouTube videos in a sarcastic, dryly funny, playful tone throughout — not a serious textbook voice. Light jabs, wit, and humor are welcome even while explaining real mechanisms; never sacrifice accuracy for a joke, but never sound dry or overly earnest either. You MUST call the web_search tool at least twice before writing the script — do this even if you're already confident, because the goal is real, checkable sources, not just what you already know. Search for credible sources on the specific claims this script needs — NOT invented studies, NOT fabricated statistics, NOT a fake personal "I did this" narrative. Explain the real mechanism behind each claim (e.g. how progressive overload, hip-hinge mechanics, or EPOC actually work) in plain language, based on what you found. If search doesn't turn up something solid, state the general textbook-level finding instead of inventing specifics. ${introInstruction} The title and thumbnail are already locked — the script's only job is to deliver on that exact promise. CRITICAL REQUIREMENT: insert AT LEAST 8 bracketed visual cues total (up to 10), like [SCENE: description of what's on screen], spread evenly across the whole script (roughly one every 60-90 words) so an editor can generate matching AI visuals later. Fewer than 8 is a failed response — never more than 10. Write 550-750 words, and always end with a real conclusion — never let the script just trail off mid-explanation. The final 40-60 words must: (1) tie the payoff directly back to the title/hook's promise, (2) give one clear, concrete takeaway the viewer can act on right now, and (3) ${outroInstruction} After searching, output ONLY the final script as plain text — no markdown headers, no search narration, no commentary. BEFORE YOU FINISH: count your [SCENE: ...] cues. If there are fewer than 8, you are not done — go back and add more throughout the script until you have at least 8 (up to 10). A script with fewer than 8 scene cues is incomplete and unacceptable.`
+        : `You write scripts for faceless AI-fitness YouTube videos in a sarcastic, dryly funny, playful tone throughout — not a serious textbook voice. Light jabs, wit, and humor are welcome. ${introInstruction} The title and thumbnail are already locked — the script's only job is to deliver on that exact promise. CRITICAL REQUIREMENT: insert AT LEAST 8 bracketed visual cues total (up to 10), like [SCENE: description of what's on screen], spread evenly across the whole script (roughly one every 60-90 words) so an editor can generate matching AI visuals later. Fewer than 8 is a failed response — never more than 10. Write 550-750 words, and always end with a real conclusion — never let the script just trail off mid-explanation. The final 40-60 words must: (1) tie the payoff directly back to the title/hook's promise, (2) give one clear, concrete takeaway the viewer can act on right now, and (3) ${outroInstruction} Plain text only, no markdown headers. BEFORE YOU FINISH: count your [SCENE: ...] cues. If there are fewer than 8, you are not done — go back and add more throughout the script until you have at least 8 (up to 10). A script with fewer than 8 scene cues is incomplete and unacceptable.`;
       const user = `Title: ${selectedConcept.title}\nThumbnail concept: ${selectedConcept.thumbnailConcept}\nOpening hook: ${selectedConcept.hook}\nNiche: ${niche}`;
       const { text, sources } = await askClaude(user, sys, { maxTokens: 4000, useSearch: contentStyle === "research" });
       setScript(text);
@@ -321,11 +322,14 @@ export default function App() {
     setLoadingVisuals(true);
     setErrVisuals("");
     try {
-      const sys = `You extract every [SCENE: ...] cue from a fitness video script and prepare AI image-generation prompts. Return ONLY raw JSON, no fences: {"basePrompt": string, "scenes": [{"cue": string, "prompt": string}]}. basePrompt describes ONE consistent anonymized AI fitness presenter character styled as a polished 3D-rendered vinyl toy figure / video game character model — use explicit rendering-engine language like "3D render, Unreal Engine style, smooth subsurface-scattered plastic material, studio softbox lighting" to push toward a glossy, clean CGI look, NOT a flat illustration or comic. Uniform matte-to-semi-glossy monochrome grey skin all over (not tan, not multiple colors), muscular athletic build. NO comic-book ink outlines, NO cross-hatching, NO dramatic glowing eyes, NO gritty/dark look, NO hand-drawn/2D-illustration look. The head is a smooth featureless mask with two simple flat white oval eye-shapes and nothing else (no mouth, no nose, no angular slits, no logo or letters on it). Background: simple, clean, softly-lit — a plain light-grey studio backdrop or a softly blurred gym, never busy or cluttered, so the character stays the clear focal point. Describe build, this exact 3D-render vinyl-toy style, and the clean lighting/background in 1-2 sentences — this is the character every scene reuses, and every scene prompt must repeat this styling language close to verbatim so every image renders as the same consistent character. Each scene prompt restates the base character briefly plus the specific action/pose/setting for that cue — keep each scene prompt under 45 words so the full response stays compact, and never ask for any words, labels, or text to appear in the image itself (AI image models render text unreliably — misspellings and garbled letters are common). CRITICAL: never describe a multi-panel, split-screen, or side-by-side comparison in a single prompt — AI image models render every panel nearly identical. If a cue implies comparing several variations (e.g. narrow/medium/wide grip), split it into that many SEPARATE single-subject scene entries instead — one clean image per variation, distinguished visually (camera angle, framing) rather than by on-image text. Ready to paste directly into an image generator.`;
+      const hasCustom = customCharacter.trim().length > 0;
+      const sys = hasCustom
+        ? `You extract every [SCENE: ...] cue from a fitness video script and prepare AI image-generation prompts. The user has already written their own exact base character description below — do NOT invent a different one, do NOT reinterpret or rewrite its style, reuse it close to verbatim in every scene prompt: "${customCharacter.trim()}". Return ONLY raw JSON, no fences: {"scenes": [{"cue": string, "prompt": string}]}. CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: for each [SCENE: ...] cue, read the specific sentence(s) of narration immediately around it in the script and visualize THAT EXACT claim, mechanism, or action being spoken at that moment — not a generic fitness stock-photo pose. If the script is making a specific point (e.g. a particular joint angle, a specific mistake, a specific before/after result), the image must show that specific concrete detail, not a vague "person working out" shot. Two different scenes must never look like interchangeable generic gym photos — each one should only make sense next to the sentence it illustrates. Each scene prompt must be a full, richly detailed image-generation prompt (100-150 words), not a terse summary. Structure every scene prompt as: (1) the character description above, restated close to verbatim; (2) precise action/pose detail tied directly to what the script says at that moment — exact body position, limb placement, what they're holding or interacting with; (3) camera framing — specify shot type (close-up / medium shot / wide shot), camera angle (eye-level / low-angle / high-angle / three-quarter view), and what's in and out of frame, chosen to best show the specific detail the script is making a point about; (4) environment specifics — exact setting, props, floor/wall detail; (5) lighting and mood — direction and quality of light, atmosphere. Be concrete and specific throughout, never generic or vague. Never ask for any words, labels, or text to appear in the image itself (AI image models render text unreliably). CRITICAL: never describe a multi-panel, split-screen, or side-by-side comparison in a single prompt. If a cue implies comparing several variations, split it into that many SEPARATE single-subject scene entries instead. Ready to paste directly into an image generator.`
+        : `You extract every [SCENE: ...] cue from a fitness video script and prepare AI image-generation prompts for a character named FLEX. Return ONLY raw JSON, no fences: {"basePrompt": string, "scenes": [{"cue": string, "prompt": string, "focus": string, "tip": string}]}. basePrompt describes FLEX in this EXACT style: a photorealistic CGI android fitness coach — reflective dark helmet head with a subtle glowing cyan dot/chevron visor pattern where the eyes would be, no visible human face. Athletic build in a sleek black performance tech-hoodie with a thin glowing cyan line running down the center zip, black joggers, black-and-white athletic sneakers. Clean, polished product-render quality — sharp reflections, realistic fabric and material detail, NOT a flat illustration, NOT a cartoon. CRITICAL — BACKGROUND: every single image is FLEX alone on a bright, clean white-to-light-grey studio backdrop with very subtle, faint geometric tech linework and a soft circular light glow behind him — minimal and uncluttered, like premium product photography. No gym equipment, no cluttered scenery. Even, soft studio lighting with a subtle cyan rim-light. basePrompt itself should be 70-110 words, concrete about build, materials, and this exact photoreal CGI style — not vague. CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: for each [SCENE: ...] cue, read the specific sentence(s) of narration immediately around it and visualize THAT EXACT claim or action — never a generic stock pose. "focus" = the single muscle group or topic that scene's script segment is actually about (e.g. "Legs", "Chest", "Core") — used to add ONE soft glowing cyan highlight accent on that body part in the image, matching FLEX's tech-suit styling, the same technique every time. "tip" = a short (max 8 words) genuine paraphrase of the specific point the script makes at that moment — never invent numbers, sets, reps, or stats that aren't actually stated in the script; if the script gives no such number, keep the tip qualitative. Each scene "prompt" must be a full, richly detailed image-generation prompt (100-150 words): (1) FLEX restated close to verbatim in the exact photoreal CGI style; (2) precise action/pose tied to the script moment; (3) camera framing — shot type, angle, what's in/out of frame; (4) the soft cyan glow highlight on the relevant "focus" body part; (5) explicitly restate the clean white-to-grey studio background with faint tech linework, nothing else in it; (6) lighting consistent with the photoreal CGI product-render look. Never ask for any words, labels, or text to appear in the image itself (AI image models render text unreliably). CRITICAL: never describe a multi-panel or side-by-side comparison in a single prompt — split into separate scene entries instead. Ready to paste directly into an image generator.`;
       const user = `Title: ${selectedConcept?.title || ""}\nNiche: ${niche}\nScript:\n${script}`;
-      const { text } = await askClaude(user, sys, { maxTokens: 4000 });
+      const { text } = await askClaude(user, sys, { maxTokens: 6000 });
       const parsed = extractJson(text);
-      setVisuals(parsed);
+      setVisuals(hasCustom ? { basePrompt: customCharacter.trim(), scenes: parsed.scenes || parsed } : parsed);
     } catch (e) {
       setErrVisuals(e.message || "Something went wrong.");
     } finally {
@@ -394,7 +398,7 @@ export default function App() {
     if (!script) return;
     setLoadingVoiceDir(true);
     try {
-      const sys = `Give short, practical voice-casting direction for an ElevenLabs voiceover of a faceless fitness video. 3-4 sentences max: pace, tone, energy, and what to avoid (e.g. "not robotic"). Plain text.`;
+      const sys = `Give short, practical voice-casting direction for a faceless fitness video voiceover. The script is written in a sarcastic, dryly funny, playful tone — the delivery should match: relaxed, a little cheeky, comfortable landing a joke or a deadpan line, not a serious documentary-narrator voice. 3-4 sentences max: pace, tone, energy, and what to avoid (e.g. "not robotic", "not overly earnest"). Plain text.`;
       const user = `Title: ${selectedConcept?.title || ""}\nNiche: ${niche}\nScript excerpt:\n${script.slice(0, 600)}`;
       const { text } = await askClaude(user, sys);
       setVoiceDirection(text);
@@ -489,7 +493,10 @@ export default function App() {
     setErrAssemble("");
     setAssembledVideoUrl(null);
 
-    const orderedKeys = (visuals?.scenes || []).map((_, i) => `scene-${i}`).filter((k) => genImages[k]);
+    const orderedScenes = (visuals?.scenes || [])
+      .map((s, i) => ({ key: `scene-${i}`, focus: s.focus || "", tip: s.tip || "" }))
+      .filter((s) => genImages[s.key]);
+    const orderedKeys = orderedScenes.map((s) => s.key);
     if (orderedKeys.length === 0) {
       setErrAssemble("Generate at least one scene image in CH.03 first.");
       return;
@@ -514,6 +521,16 @@ export default function App() {
             })
         )
       );
+
+      let logoImg = null;
+      if (channelLogo) {
+        logoImg = await new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+          img.src = channelLogo;
+        });
+      }
 
       const audio = new Audio(audioUrl);
       audio.crossOrigin = "anonymous";
@@ -569,6 +586,23 @@ export default function App() {
 
       setAssembleProgress("Recording…");
 
+      function wrapText(text, maxWidth) {
+        const wds = text.split(" ");
+        const lines = [];
+        let current = "";
+        for (const w of wds) {
+          const test = current ? current + " " + w : w;
+          if (ctx.measureText(test).width > maxWidth && current) {
+            lines.push(current);
+            current = w;
+          } else {
+            current = test;
+          }
+        }
+        if (current) lines.push(current);
+        return lines;
+      }
+
       function drawFrame() {
         const t = Math.min(audio.currentTime, duration);
         const idx = Math.min(imgs.length - 1, Math.floor(t / perImage));
@@ -601,6 +635,65 @@ export default function App() {
           const fadeT = (localT - (perImage - transitionTime)) / transitionTime;
           const [npx, npy] = panDirs[idx + 1];
           drawImg(nextImg, fadeT, npx, npy, 0);
+        }
+
+        // HUD info panel — code-drawn (never AI-rendered) so the text is
+        // always accurate and legible. Content is the real focus/tip pulled
+        // from the script for this scene, not invented stats.
+        const scene = orderedScenes[idx];
+        if (scene && (scene.focus || scene.tip)) {
+          const panelW = 560;
+          const marginRight = 40;
+          const marginTop = 56;
+          const panelX = cw - panelW - marginRight;
+          let panelY = marginTop;
+          const pad = 26;
+
+          ctx.font = "600 30px Arial, sans-serif";
+          const tipLines = scene.tip ? wrapText(scene.tip.toUpperCase(), panelW - pad * 2) : [];
+          const logoSize = 44;
+          const headerH = logoImg ? logoSize + 16 : 0;
+          const focusH = scene.focus ? 44 : 0;
+          const tipH = tipLines.length * 36;
+          const panelH = pad * 2 + headerH + focusH + tipH + (tipLines.length ? 10 : 0);
+
+          ctx.save();
+          ctx.globalAlpha = 0.82;
+          ctx.fillStyle = "#0B1420";
+          ctx.beginPath();
+          ctx.roundRect ? ctx.roundRect(panelX, panelY, panelW, panelH, 18) : ctx.rect(panelX, panelY, panelW, panelH);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "#2DE5E0";
+          ctx.stroke();
+          ctx.restore();
+
+          let cursorY = panelY + pad;
+
+          if (logoImg) {
+            const lw = logoImg.width, lh = logoImg.height;
+            const s = logoSize / Math.max(lw, lh);
+            ctx.drawImage(logoImg, panelX + pad, cursorY, lw * s, lh * s);
+            cursorY += headerH;
+          }
+
+          if (scene.focus) {
+            ctx.font = "700 30px Arial, sans-serif";
+            ctx.fillStyle = "#2DE5E0";
+            ctx.textAlign = "left";
+            ctx.textBaseline = "top";
+            ctx.fillText(("FOCUS: " + scene.focus).toUpperCase(), panelX + pad, cursorY, panelW - pad * 2);
+            cursorY += focusH;
+          }
+
+          if (tipLines.length) {
+            ctx.font = "600 30px Arial, sans-serif";
+            ctx.fillStyle = "#FFFFFF";
+            tipLines.forEach((line, i) => {
+              ctx.fillText(line, panelX + pad, cursorY + i * 36, panelW - pad * 2);
+            });
+          }
         }
 
         if (!audio.ended && !audio.paused) {
@@ -907,8 +1000,19 @@ export default function App() {
             ) : (
               <>
                 <p className="text-sm mb-3" style={{ color: C.boneDim }}>
-                  Generates real images via GPT Image 1 Mini (low quality — cheap and fast for testing). Prompts are still copy-ready for Whisk too if you'd rather generate there.
+                  Generates FLEX — a consistent photoreal CGI character — on a clean studio background, with a code-drawn info panel pulling real focus/tip content from your script (never invented stats). Paste your own character description below to override FLEX entirely.
                 </p>
+
+                <label className="f-mono text-[11px] block mb-1" style={{ color: C.tape }}>CUSTOM CHARACTER (optional)</label>
+                <textarea
+                  value={customCharacter}
+                  onChange={(e) => setCustomCharacter(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. A muscular flat 2D vector illustration character, matte grey skin, smooth featureless mask with two white oval eyes, clean minimal studio background..."
+                  className="f-body w-full rounded-lg px-3 py-2.5 text-sm outline-none mb-4"
+                  style={{ background: C.bg, color: C.bone, border: `1px solid ${C.line}` }}
+                />
+
                 <PrimaryButton onClick={genVisuals} loading={loadingVisuals} icon={ImageIcon}>
                   {visuals ? "REGENERATE PROMPTS" : "GENERATE VISUAL PROMPTS"}
                 </PrimaryButton>
@@ -957,6 +1061,13 @@ export default function App() {
                             <CopyBtn text={s.prompt} />
                           </div>
                           <p className="text-[11px] italic mb-1" style={{ color: C.boneDim }}>{s.cue}</p>
+                          {(s.focus || s.tip) && (
+                            <p className="text-[11px] mb-1.5" style={{ color: C.tape }}>
+                              {s.focus && <span className="f-mono">FOCUS: {s.focus}</span>}
+                              {s.focus && s.tip && "  ·  "}
+                              {s.tip}
+                            </p>
+                          )}
                           <p className="text-xs mb-2" style={{ color: C.bone }}>{s.prompt}</p>
                           <button
                             onClick={() => genImage(key, s.prompt)}

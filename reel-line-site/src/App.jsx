@@ -328,8 +328,26 @@ export default function App() {
     try {
       const hasCustom = customCharacter.trim().length > 0;
       const sys = hasCustom
-        ? `You extract every [SCENE: ...] cue from a fitness video script and prepare AI image-generation prompts. The user has already written their own exact base character description below — do NOT invent a different one, do NOT reinterpret or rewrite its style, reuse it close to verbatim in every scene prompt: "${customCharacter.trim()}". Return ONLY raw JSON, no fences: {"scenes": [{"cue": string, "prompt": string}]}. CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: for each [SCENE: ...] cue, read the specific sentence(s) of narration immediately around it in the script and visualize THAT EXACT claim, mechanism, or action being spoken at that moment — not a generic fitness stock-photo pose. If the script is making a specific point (e.g. a particular joint angle, a specific mistake, a specific before/after result), the image must show that specific concrete detail, not a vague "person working out" shot. Two different scenes must never look like interchangeable generic gym photos — each one should only make sense next to the sentence it illustrates. Each scene prompt must be a full, richly detailed image-generation prompt (100-150 words), not a terse summary. Structure every scene prompt as: (1) the character description above, restated close to verbatim; (2) precise action/pose detail tied directly to what the script says at that moment — exact body position, limb placement, what they're holding or interacting with; (3) camera framing — specify shot type (close-up / medium shot / wide shot), camera angle (eye-level / low-angle / high-angle / three-quarter view), and what's in and out of frame, chosen to best show the specific detail the script is making a point about; (4) environment specifics — exact setting, props, floor/wall detail; (5) lighting and mood — direction and quality of light, atmosphere. Be concrete and specific throughout, never generic or vague. Never ask for any words, labels, or text to appear in the image itself (AI image models render text unreliably). These are STATIC IMAGES, not video — never describe motion, slow-motion, camera pans/zooms, or anything implying multiple moments over time; describe a single still frame only, even if the script cue mentions video-style language. If this video is about a specific exercise or piece of equipment (e.g. bench press, deadlift), most scenes MUST show the character actually performing it or holding the equipment — not just standing in a generic pose. MECHANICAL RULE, NO EXCEPTIONS: check each scene's cue for any specific equipment (bar, barbell, bench, dumbbell, plate, machine, band, etc.) or specific exercise named. If mentioned, the "prompt" text MUST explicitly describe the character physically holding, gripping, or positioned on that exact equipment, with it clearly visible in frame — not implied, literally described. A scene about a barbell with no barbell described in the prompt is wrong. CRITICAL: never describe a multi-panel, split-screen, or side-by-side comparison in a single prompt. If a cue implies comparing several variations, split it into that many SEPARATE single-subject scene entries instead. Ready to paste directly into an image generator.`
-        : `You extract every [SCENE: ...] cue from a fitness video script and prepare AI image-generation prompts for a character named FLEX. Return ONLY raw JSON, no fences: {"basePrompt": string, "scenes": [{"cue": string, "prompt": string, "focus": string, "tip": string}]}. basePrompt describes FLEX in this EXACT style: a photorealistic CGI android fitness coach — reflective dark helmet head with a subtle glowing cyan dot/chevron visor pattern where the eyes would be, no visible human face. Athletic build in a sleek black performance tech-hoodie with a thin glowing cyan line running down the center zip, black joggers, black-and-white athletic sneakers. Clean, polished product-render quality — sharp reflections, realistic fabric and material detail, NOT a flat illustration, NOT a cartoon. CRITICAL — BACKGROUND: every single image is FLEX alone on a bright, clean white-to-light-grey studio backdrop with very subtle, faint geometric tech linework and a soft circular light glow behind him — minimal and uncluttered, like premium product photography. Relevant exercise equipment (barbell, bench, dumbbells, resistance band, etc.) IS allowed and required whenever a scene calls for it — FLEX can hold or use it — but the backdrop behind him stays the plain studio background, never a full gym scene. Even, soft studio lighting with a subtle cyan rim-light. basePrompt itself should be 70-110 words, concrete about build, materials, and this exact photoreal CGI style — not vague. CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: for each [SCENE: ...] cue, read the specific sentence(s) of narration immediately around it and visualize THAT EXACT claim or action — never a generic stock pose. "focus" = the single muscle group or topic that scene's script segment is actually about (e.g. "Legs", "Chest", "Core") — used to add ONE soft glowing cyan highlight accent on that body part in the image, matching FLEX's tech-suit styling, the same technique every time. "tip" = a short (max 8 words) genuine paraphrase of the specific point the script makes at that moment — never invent numbers, sets, reps, or stats that aren't actually stated in the script; if the script gives no such number, keep the tip qualitative. Each scene "prompt" must be a full, richly detailed image-generation prompt (100-150 words): (1) FLEX restated close to verbatim in the exact photoreal CGI style; (2) precise action/pose tied to the script moment; (3) camera framing — shot type, angle, what's in/out of frame; (4) the soft cyan glow highlight on the relevant "focus" body part; (5) explicitly restate the clean white-to-grey studio background with faint tech linework, nothing else in it; (6) lighting consistent with the photoreal CGI product-render look. Never ask for any words, labels, or text to appear in the image itself (AI image models render text unreliably). These are STATIC IMAGES, not video — never describe motion, slow-motion, camera pans/zooms, or anything implying multiple moments over time; describe a single still frame only, even if the script cue mentions video-style language. CRITICAL: never describe a multi-panel or side-by-side comparison in a single prompt — split into separate scene entries instead. MECHANICAL RULE, NO EXCEPTIONS: after writing each scene's "tip" and "cue", check if they mention any specific equipment by name (bar, barbell, bench, dumbbell, plate, machine, band, etc.) or a specific exercise (bench press, squat, deadlift, curl, etc.). If they do, the "prompt" text MUST explicitly describe FLEX physically holding, gripping, or positioned on that exact equipment, performing that exact exercise, with the equipment clearly visible in frame — state exactly where it is (e.g. "gripping a barbell racked just above his chest, arms bent at roughly 90 degrees" or "lying flat on a black weight bench, barbell held at arm's length above his chest"). A scene whose tip says "the bar grinds to a halt" but whose image prompt shows no bar is WRONG and must be rewritten before you respond. BEFORE YOU FINISH: re-read every scene's tip against its prompt — if the tip references equipment or an exercise that is not literally described in the prompt, fix it now. Ready to paste directly into an image generator.`;
+        ? `You extract every [SCENE: ...] cue from a fitness video script and prepare AI image-generation prompts. The user has already written their own exact base character description below, used ONCE to generate a reference image: "${customCharacter.trim()}". Return ONLY raw JSON, no fences: {"scenes": [{"cue": string, "prompt": string, "subject": "character"|"object", "side": "left"|"right"}]}.
+
+COMPOSITION RULE — every scene leaves ONE full side of the frame as plain, empty background (matching the studio backdrop, nothing else in it) — this space is reserved for a text panel added afterward. "side" = which side the subject occupies; the empty space is always the opposite side. Alternate sides across scenes for visual variety.
+
+SUBJECT CHOICE — "subject": "character" when the script moment is about the character doing something; "object" when the script names a specific concrete thing (a calendar, a plate of food, a supplement bottle, a specific tool) that would be a clearer, more literal visual than the character standing there — in that case the image features THAT OBJECT prominently instead, styled to match (same lighting, same plain backdrop, same side-composition rule). Ground this choice in the literal noun the script uses at that moment. Don't force the character into every single scene if the script is actually talking about something else.
+
+Each scene "prompt" (70-110 words): if subject is "character", this is an edit instruction on the reference image — do not redescribe the character's appearance (the reference handles that), describe the action/pose tied to the exact script moment, which side of the frame he's composed on, and confirm the opposite side is empty plain background. If subject is "object", this is a full prompt (generated fresh, no reference) describing that object concretely, in a clean product-photography style consistent with the rest of the video, positioned on the specified side with the opposite side empty.
+
+CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence(s) around each [SCENE: ...] cue and depict THAT EXACT claim, mechanism, or named thing — never a generic pose. MECHANICAL RULE: if the cue names specific equipment or an exercise, the prompt MUST explicitly describe it being held/used/visible — a scene about a barbell with no barbell in the prompt is wrong. These are STATIC IMAGES, not video — never describe motion or camera movement. Never ask for text/words/labels in the image. Never describe a multi-panel or side-by-side comparison within one image — that's what the side/subject split above is for. Ready to paste directly into an image tool.`
+        : `You extract every [SCENE: ...] cue from a fitness video script and prepare AI image-generation prompts for a character named FLEX. Return ONLY raw JSON, no fences: {"basePrompt": string, "scenes": [{"cue": string, "prompt": string, "focus": string, "tip": string, "subject": "flex"|"object", "side": "left"|"right"}]}. basePrompt describes FLEX in this EXACT style, used ONCE to generate a single reference image: a photorealistic CGI android fitness coach — reflective dark helmet head with a subtle glowing cyan dot/chevron visor pattern where the eyes would be, no visible human face. Athletic build in a sleek black performance tech-hoodie with a thin glowing cyan line running down the center zip, black joggers, black-and-white athletic sneakers. Clean, polished product-render quality — sharp reflections, realistic fabric and material detail, NOT a flat illustration, NOT a cartoon. Background: alone on a bright, clean white-to-light-grey studio backdrop with faint geometric tech linework — minimal, uncluttered, premium product photography. Even, soft studio lighting with a subtle cyan rim-light. basePrompt itself should be 70-110 words, concrete about build, materials, and this exact photoreal CGI style — not vague.
+
+COMPOSITION RULE — every scene leaves ONE full side of the frame as plain, empty background (matching the studio backdrop, nothing else in it, no character or object bleeding into it) — this space is reserved for a text info panel added afterward. "side" = which side the subject (FLEX or the object) occupies in that scene; the empty reserved space is always the opposite side. Alternate sides across scenes for visual variety unless the content strongly favors one framing.
+
+SUBJECT CHOICE — "subject": "flex" when the script moment is about FLEX performing an action or exercise; "object" when the script names a specific concrete thing (a calendar, a plate of food, a supplement bottle, a specific piece of equipment on its own) that would be a clearer, more literal visual than FLEX standing there — in that case the image features THAT OBJECT prominently instead of FLEX, rendered in the same clean CGI product-photography style, same lighting, same studio background, same side-composition rule. Ground this choice in the literal noun the script uses — if it says "calendar", show a calendar; if it's about food, show the actual food. Don't force FLEX into every scene if the script is actually talking about something else.
+
+"focus" = the single muscle group or topic that scene's script segment is actually about (e.g. "Legs", "Chest", "Nutrition", "Schedule") — used for a soft cyan glow highlight when subject is "flex" (on the relevant body part), or omitted/left empty when subject is "object". "tip" = a short (max 8 words) genuine paraphrase of the specific point the script makes at that moment — never invent numbers, sets, reps, or stats not actually in the script; keep it qualitative if the script gives no number.
+
+Each scene "prompt" (70-110 words): if subject is "flex", this is an edit instruction on the FLEX reference image — do NOT redescribe his helmet, suit, colors (the reference handles that); describe the action/pose/equipment tied to the exact script moment, which side of frame he's composed on, the cyan glow on the "focus" body part, and confirm the opposite side stays empty plain background. If subject is "object", this is a full prompt (no reference image used) describing that object concretely and specifically, styled to match FLEX's clean product-photography aesthetic (same lighting, same plain backdrop, subtle cyan accent allowed), positioned on the specified side, opposite side empty.
+
+CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence(s) around each [SCENE: ...] cue and depict THAT EXACT claim, mechanism, or named thing — never a generic pose. MECHANICAL RULE, NO EXCEPTIONS: if the cue, tip, or script segment names specific equipment (bar, barbell, bench, dumbbell, plate, machine, band, etc.) or a specific exercise, the "prompt" MUST explicitly describe FLEX gripping/holding/positioned on that exact equipment, visible in frame — a scene whose tip says "the bar grinds to a halt" but whose prompt doesn't mention a bar is WRONG, fix it before responding. Never use the word "gym" or describe gym flooring/walls/racks — only the specific item itself, isolated on the plain backdrop. These are STATIC IMAGES, not video — never describe motion, slow-motion, or camera movement. Never ask for text/words/labels in the image (rendered unreliably). Never describe a multi-panel or side-by-side comparison within one image — that's what the side/subject split above is for. Ready to paste directly into an image tool.`;
       const user = `Title: ${selectedConcept?.title || ""}\nNiche: ${niche}\nScript:\n${script}`;
       const { text } = await askClaude(user, sys, { maxTokens: 6000 });
       const parsed = extractJson(text);
@@ -341,34 +359,42 @@ export default function App() {
     }
   }
 
-  async function genImage(key, prompt, isRetry) {
+  async function genImage(key, prompt, isRetry, referenceOverride) {
     if (key === "scene-0" && channelName.trim() && channelLogo && useLogoForIntro) {
       setGenImages((prev) => ({ ...prev, [key]: channelLogo }));
       setErrImages((prev) => ({ ...prev, [key]: "" }));
-      return true;
+      return channelLogo;
+    }
+    if (key !== "base" && referenceOverride === undefined && !genImages.base) {
+      setErrImages((prev) => ({ ...prev, [key]: "Generate the base character image first (use Generate All Images, or generate 'base' individually before this one)." }));
+      return null;
     }
     setLoadingImages((prev) => ({ ...prev, [key]: true }));
     if (!isRetry) setErrImages((prev) => ({ ...prev, [key]: "" }));
     try {
+      // Use the base FLEX image as a visual reference for every scene after
+      // it, via OpenAI's image-edit endpoint — keeps him consistent without
+      // re-describing his whole appearance in every prompt.
+      const referenceImage = referenceOverride !== undefined ? referenceOverride : (key !== "base" ? genImages.base : undefined);
       const res = await fetch("/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, referenceImage }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Request failed (" + res.status + ")");
       setGenImages((prev) => ({ ...prev, [key]: data.image }));
       setErrImages((prev) => ({ ...prev, [key]: "" }));
-      return true;
+      return data.image;
     } catch (e) {
       if (!isRetry) {
         // Likely rate-limited from firing many requests back to back — wait
         // a beat and try this one more time before giving up.
         await new Promise((r) => setTimeout(r, 2000));
-        return genImage(key, prompt, true);
+        return genImage(key, prompt, true, referenceOverride);
       }
       setErrImages((prev) => ({ ...prev, [key]: e.message || "Image generation failed." }));
-      return false;
+      return null;
     } finally {
       setLoadingImages((prev) => ({ ...prev, [key]: false }));
     }
@@ -377,15 +403,22 @@ export default function App() {
   async function genAllImages() {
     if (!visuals) return;
     const items = [
-      { key: "base", prompt: visuals.basePrompt },
-      ...(visuals.scenes || []).map((s, i) => ({ key: `scene-${i}`, prompt: s.prompt })),
+      { key: "base", prompt: visuals.basePrompt, subject: "flex" },
+      ...(visuals.scenes || []).map((s, i) => ({ key: `scene-${i}`, prompt: s.prompt, subject: s.subject || "flex" })),
     ];
     setLoadingAll(true);
     let succeeded = 0;
+    let baseImageData = null;
     for (let i = 0; i < items.length; i++) {
       setAllProgress(`Generating ${i + 1} of ${items.length}…`);
-      const ok = await genImage(items[i].key, items[i].prompt);
-      if (ok) succeeded++;
+      const isBase = items[i].key === "base";
+      const isObject = items[i].subject === "object";
+      // Object scenes (calendar, food, etc.) generate fresh with no
+      // reference — the FLEX reference only applies to FLEX scenes.
+      const reference = isBase ? undefined : isObject ? null : baseImageData;
+      const result = await genImage(items[i].key, items[i].prompt, false, reference);
+      if (isBase) baseImageData = result;
+      if (result) succeeded++;
       // Small gap between requests to avoid tripping rate limits.
       if (i < items.length - 1) await new Promise((r) => setTimeout(r, 500));
     }
@@ -498,7 +531,7 @@ export default function App() {
     setAssembledVideoUrl(null);
 
     const orderedScenes = (visuals?.scenes || [])
-      .map((s, i) => ({ key: `scene-${i}`, focus: s.focus || "", tip: s.tip || "" }))
+      .map((s, i) => ({ key: `scene-${i}`, focus: s.focus || "", tip: s.tip || "", side: s.side || "left" }))
       .filter((s) => genImages[s.key]);
     const orderedKeys = orderedScenes.map((s) => s.key);
     if (orderedKeys.length === 0) {
@@ -646,23 +679,22 @@ export default function App() {
         // from the script for this scene, not invented stats.
         const scene = orderedScenes[idx];
         if (scene && (scene.focus || scene.tip)) {
-          const panelW = 560;
-          const marginRight = 40;
-          const marginTop = 56;
-          const panelX = cw - panelW - marginRight;
-          let panelY = marginTop;
+          const marginSide = 40;
+          const panelW = cw * 0.46;
           const pad = 26;
 
-          ctx.font = "600 30px Arial, sans-serif";
+          ctx.font = "600 28px Arial, sans-serif";
           const tipLines = scene.tip ? wrapText(scene.tip.toUpperCase(), panelW - pad * 2) : [];
           const logoSize = 44;
           const headerH = logoImg ? logoSize + 16 : 0;
-          const focusH = scene.focus ? 44 : 0;
-          const tipH = tipLines.length * 36;
+          const focusH = scene.focus ? 42 : 0;
+          const tipH = tipLines.length * 34;
           const panelH = pad * 2 + headerH + focusH + tipH + (tipLines.length ? 10 : 0);
+          const panelX = scene.side === "left" ? cw - panelW - marginSide : marginSide;
+          const panelY = (ch - panelH) / 2;
 
           ctx.save();
-          ctx.globalAlpha = 0.82;
+          ctx.globalAlpha = 0.85;
           ctx.fillStyle = "#0B1420";
           ctx.beginPath();
           ctx.roundRect ? ctx.roundRect(panelX, panelY, panelW, panelH, 18) : ctx.rect(panelX, panelY, panelW, panelH);
@@ -683,7 +715,7 @@ export default function App() {
           }
 
           if (scene.focus) {
-            ctx.font = "700 30px Arial, sans-serif";
+            ctx.font = "700 28px Arial, sans-serif";
             ctx.fillStyle = "#2DE5E0";
             ctx.textAlign = "left";
             ctx.textBaseline = "top";
@@ -692,10 +724,10 @@ export default function App() {
           }
 
           if (tipLines.length) {
-            ctx.font = "600 30px Arial, sans-serif";
+            ctx.font = "600 28px Arial, sans-serif";
             ctx.fillStyle = "#FFFFFF";
             tipLines.forEach((line, i) => {
-              ctx.fillText(line, panelX + pad, cursorY + i * 36, panelW - pad * 2);
+              ctx.fillText(line, panelX + pad, cursorY + i * 34, panelW - pad * 2);
             });
           }
         }
@@ -1011,7 +1043,7 @@ export default function App() {
             ) : (
               <>
                 <p className="text-sm mb-3" style={{ color: C.boneDim }}>
-                  Generates FLEX — a consistent photoreal CGI character — on a clean studio background, with a code-drawn info panel pulling real focus/tip content from your script (never invented stats). Paste your own character description below to override FLEX entirely.
+                  Each scene composes FLEX (or a relevant object your script names, like food or a calendar) on one side, with the info panel in the empty space on the other — pulling real focus/tip content from your script, never invented stats. Paste your own character description below to override FLEX entirely.
                 </p>
 
                 <label className="f-mono text-[11px] block mb-1" style={{ color: C.tape }}>CUSTOM CHARACTER (optional)</label>
@@ -1081,7 +1113,7 @@ export default function App() {
                           )}
                           <p className="text-xs mb-2" style={{ color: C.bone }}>{s.prompt}</p>
                           <button
-                            onClick={() => genImage(key, s.prompt)}
+                            onClick={() => genImage(key, s.prompt, false, s.subject === "object" ? null : undefined)}
                             disabled={loadingImages[key]}
                             className="f-mono flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-opacity"
                             style={{ background: C.tape, color: "#0B0D0F", opacity: loadingImages[key] ? 0.5 : 1 }}
@@ -1097,10 +1129,10 @@ export default function App() {
                                 <div
                                   className="absolute rounded-lg px-3 py-2"
                                   style={{
-                                    top: "4%",
-                                    right: "4%",
-                                    maxWidth: "62%",
-                                    background: "rgba(11,20,32,0.82)",
+                                    top: "38%",
+                                    [s.side === "left" ? "right" : "left"]: "5%",
+                                    width: "42%",
+                                    background: "rgba(11,20,32,0.85)",
                                     border: "1.5px solid #2DE5E0",
                                   }}
                                 >

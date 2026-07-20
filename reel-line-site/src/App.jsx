@@ -176,6 +176,7 @@ export default function App() {
   const [channelName, setChannelName] = useState("FORM FORGE");
   const [channelTagline, setChannelTagline] = useState("Move. Train. Improve.");
   const [channelLogo, setChannelLogo] = useState(null); // data URL of uploaded logo
+  const [characterName, setCharacterName] = useState("Flex");
   const [useLogoForIntro, setUseLogoForIntro] = useState(true);
   const [angle, setAngle] = useState("");
   const [loadingNiche, setLoadingNiche] = useState(false);
@@ -297,8 +298,11 @@ export default function App() {
     setLoadingScript(true);
     setErrScript("");
     try {
-      const introInstruction = channelName.trim()
-        ? `The very first beat of the script must be this channel intro, spoken close to verbatim: "Hello, this is ${channelName.trim()}${channelTagline.trim() ? "... " + channelTagline.trim() : "."}" Pair it with a [SCENE: ...] cue for a bold logo/title-card reveal moment (no readable on-image text needed — the words are spoken and captioned, not drawn on screen). This intro is one of the 8-10 total scene cues, not extra. Immediately after it, cut straight into the hook that delivers on the title's promise — no filler between the intro and the hook.`
+      const introGreeting = characterName.trim()
+        ? `What's up, I'm ${characterName.trim()}${channelName.trim() ? " from " + channelName.trim() : ""}`
+        : `Hello, this is ${channelName.trim()}`;
+      const introInstruction = channelName.trim() || characterName.trim()
+        ? `The very first beat of the script must be this intro, spoken close to verbatim: "${introGreeting}${channelTagline.trim() ? "... " + channelTagline.trim() : "."}" Pair it with a [SCENE: ...] cue for a bold, confident introduction shot of the character (no readable on-image text needed — the words are spoken and captioned, not drawn on screen). This intro is one of the 8-10 total scene cues, not extra. Immediately after it, cut straight into the hook that delivers on the title's promise — no filler between the intro and the hook.`
         : `Start directly with the hook — no channel intro.`;
       const outroInstruction = channelTagline.trim()
         ? `The script's very last line must be close to verbatim: "Well, that's it — and remember... ${channelTagline.trim().toUpperCase()}... catch you next time!" (keep that rhythm and structure; light wording tweaks are fine, but the tagline shout and "catch you next time" close must stay).`
@@ -796,6 +800,13 @@ export default function App() {
 
             <div className="rounded-lg p-3 mb-4" style={{ background: C.bg, border: `1px solid ${C.line}` }}>
               <label className="f-mono text-[11px] block mb-1" style={{ color: C.tape }}>CHANNEL BRANDING — opens every script</label>
+              <input
+                value={characterName}
+                onChange={(e) => setCharacterName(e.target.value)}
+                placeholder="Character name (e.g. Flex)"
+                className="f-body w-full rounded-lg px-3 py-2 text-sm outline-none mb-2"
+                style={{ background: C.panel, color: C.bone, border: `1px solid ${C.line}` }}
+              />
               <div className="flex gap-2">
                 <input
                   value={channelName}

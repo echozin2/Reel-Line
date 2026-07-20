@@ -19,4 +19,4 @@ body {
 @keyframes pulse-rec { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
 .rec-dot { animation: pulse-rec 1.6s ease-in-out infinite; }
 
-::selection { background: #F5C518; color: #0B0D0F; }
+::selection { background: #2DE5E0; color: #060A0E; }

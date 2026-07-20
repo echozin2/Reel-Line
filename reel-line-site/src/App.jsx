@@ -195,11 +195,10 @@ export default function App() {
 
   const [visuals, setVisuals] = useState(null);
   const [customCharacter, setCustomCharacter] = useState("");
-  const [testPrompt, setTestPrompt] = useState("FLEX gripping a barbell racked at chest height, mid-rep on a bench press, elbows bent to 90 degrees, viewed from a low three-quarter angle, composed on the left side of frame with the right half left as plain empty studio background");
+  const [testPrompt, setTestPrompt] = useState("FLEX — reflective dark helmet with a glowing cyan chevron visor pattern, no human face, black tech-hoodie with a thin glowing cyan zip-line — gripping a barbell racked at chest height, mid-rep on a bench press, elbows bent to 90 degrees, viewed from a low three-quarter angle, soft cyan glow on his chest, composed on the left side of frame with the right half left as plain empty studio background");
   const [testFocus, setTestFocus] = useState("Chest");
   const [testTip, setTestTip] = useState("The bar grinds to a near-halt mid-press.");
   const [testSide, setTestSide] = useState("left");
-  const [testUseReference, setTestUseReference] = useState(true);
   const [testImage, setTestImage] = useState(null);
   const [testLoading, setTestLoading] = useState(false);
   const [testErr, setTestErr] = useState("");
@@ -371,7 +370,7 @@ CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence
     setTestLoading(true);
     setTestErr("");
     try {
-      const reference = testUseReference ? genImages.base : null;
+      const reference = genImages.base || null;
       const res = await fetch("/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1104,10 +1103,11 @@ CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence
                   <option value="right">Subject: right</option>
                 </select>
               </div>
-              <label className="flex items-center gap-2 mb-3 text-[11px]" style={{ color: C.boneDim }}>
-                <input type="checkbox" checked={testUseReference} onChange={(e) => setTestUseReference(e.target.checked)} disabled={!genImages.base} />
-                Use the base FLEX image as reference {!genImages.base && "(none generated yet — will generate fresh)"}
-              </label>
+              <p className="mb-3 text-[11px]" style={{ color: C.boneDim }}>
+                {genImages.base
+                  ? "Will use the base FLEX image as reference automatically."
+                  : "No base FLEX image generated yet — this will render fresh from text alone. Generate the base image in the main section below first for a truer test."}
+              </p>
               <PrimaryButton onClick={genTestImage} loading={testLoading} icon={ImageIcon}>
                 GENERATE TEST IMAGE
               </PrimaryButton>

@@ -19,7 +19,7 @@ const C = {
 
 // Bump this every time a new App.jsx is uploaded — shows in the top bar
 // so it's obvious at a glance whether the live site matches the latest file.
-const BUILD = "16";
+const BUILD = "20";
 
 const STAGES = [
   { id: "concept", ch: "CH.01", title: "Hook & Package", icon: Sparkles },
@@ -180,6 +180,7 @@ export default function App() {
   const [channelName, setChannelName] = useState("FORM FORGE");
   const [channelTagline, setChannelTagline] = useState("Move. Train. Improve.");
   const [channelLogo, setChannelLogo] = useState(null); // data URL of uploaded logo
+  const [flexReference, setFlexReference] = useState(null); // data URL of an uploaded FLEX reference image, used instead of AI-generating the base
   const [characterName, setCharacterName] = useState("Flex");
   const [useLogoForIntro, setUseLogoForIntro] = useState(true);
   const [angle, setAngle] = useState("");
@@ -204,6 +205,7 @@ export default function App() {
   const [testTip, setTestTip] = useState("The bar grinds to a near-halt mid-press.");
   const [testSide, setTestSide] = useState("left");
   const [testImage, setTestImage] = useState(null);
+  const [sceneVideos, setSceneVideos] = useState({}); // scene key -> { url, name }
   const [testLoading, setTestLoading] = useState(false);
   const [testErr, setTestErr] = useState("");
   const [loadingVisuals, setLoadingVisuals] = useState(false);
@@ -242,6 +244,12 @@ export default function App() {
     voice: !!voiceDirection,
     thumbnail: !!thumbBrief,
   };
+
+  const sceneWordWeights = getSceneWordWeights();
+  const totalSceneWeight = sceneWordWeights.reduce((a, b) => a + b, 0) || 1;
+  // ~150 wpm is a reasonable spoken-pace assumption for the CH.03 estimate,
+  // before real audio exists to measure against.
+  const estimatedTotalSeconds = (totalSceneWeight / 150) * 60;
 
   // Auto-generate the script the moment a concept is picked (if it hasn't
   // been generated yet), and auto-generate visual prompts the moment a
@@ -332,13 +340,41 @@ export default function App() {
     }
   }
 
+  // Each [SCENE: ...] cue marks a point in the narration; the words between
+  // one cue and the next are what that scene's image is "covering" — used
+  // to give proportional screen time instead of splitting evenly.
+  function getSceneWordWeights() {
+    if (!script) return [];
+    const parts = script.split(/\[SCENE:[^\]]*\]/g);
+    const wordsPerPart = parts.map((p) => (p.trim().match(/\S+/g) || []).length);
+    const numScenes = Math.max(0, wordsPerPart.length - 1);
+    const weights = [];
+    for (let i = 0; i < numScenes; i++) {
+      weights.push(Math.max(wordsPerPart[i + 1] || 0, 5)); // floor so no scene gets ~0s
+    }
+    return weights;
+  }
+
   async function genVisuals() {
     if (!script) return;
     setLoadingVisuals(true);
     setErrVisuals("");
     try {
-      const hasCustom = customCharacter.trim().length > 0;
-      const sys = hasCustom
+      const hasFlexRef = !!flexReference;
+      const hasCustom = !hasFlexRef && customCharacter.trim().length > 0;
+      const sys = hasFlexRef
+        ? `You extract every [SCENE: ...] cue from a fitness video script and prepare AI image-edit prompts for a character whose EXACT appearance is defined entirely by an uploaded reference image — not by you. Return ONLY raw JSON, no fences: {"scenes": [{"cue": string, "prompt": string, "focus": string, "tip": string, "expression": string, "subject": "flex"|"object", "side": "left"|"right"}]}.
+
+COMPOSITION RULE — every scene leaves ONE full side of the frame as plain, empty background matching the reference image's backdrop — this space is reserved for a text info panel added afterward. "side" = which side the subject occupies; the empty space is always the opposite side. Alternate sides across scenes for visual variety.
+
+SUBJECT CHOICE — "subject": "flex" when the script moment is about the character performing an action; "object" when the script names a specific concrete thing (a calendar, food, a supplement bottle) that would be a clearer visual than the character — in that case the object is the subject instead, styled to loosely match a clean product-photography look, same side-composition rule. Ground this in the literal noun the script uses. Don't force the character into every scene.
+
+"focus" = the muscle group or topic that scene's script segment is about. "tip" = a short (max 8 words) genuine paraphrase of the script's point at that moment — never invent numbers or stats not in the script. "expression" = a short phrase describing the character's visor/eye LED pattern for that moment's mood — his only way to show emotion, since he has no human face. Vary it to match the tone of that script segment: e.g. "confident upward smile-curve pattern", "focused determined straight chevron", "playful asymmetric wink pattern", "thinking square dot-grid pattern", "surprised wide-arc pattern". This is the ONE exception to never describing his appearance — the visor pattern may be described since it's his expression, nothing else about him.
+
+Each scene "prompt" (40-70 words): if subject is "flex", this is a PURE edit instruction — NEVER describe his appearance, helmet, suit, colors, or any visual trait in ANY way, not even briefly (the reference image is the only source of truth; any text description risks contradicting the actual uploaded image and degrading fidelity to it) — EXCEPT the visor/eye LED pattern, which should be changed to match "expression". Describe: (1) the action/pose/equipment tied to the exact script moment; (2) the visor pattern change from "expression"; (3) which side of frame he's composed on, confirming the opposite side stays empty plain background; (4) a one-line note on a cyan glow highlight for the "focus" body part, if relevant. If subject is "object", this is a full prompt (no reference used) describing that object concretely, positioned on the specified side, opposite side empty.
+
+CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence(s) around each [SCENE: ...] cue and depict THAT EXACT claim or named thing — never a generic pose. MECHANICAL RULE, NO EXCEPTIONS: if the cue or tip names specific equipment or an exercise, the prompt MUST explicitly describe it being held/used/visible — a scene about a barbell with no barbell in the prompt is wrong. Never use the word "gym". These are STATIC IMAGES — never describe motion or camera movement. Never ask for text/words/labels in the image. Never describe a multi-panel or side-by-side comparison — that's what the side/subject split is for. Ready to paste directly into an image-edit tool.`
+        : hasCustom
         ? `You extract every [SCENE: ...] cue from a fitness video script and prepare AI image-generation prompts. The user has already written their own exact base character description below, used ONCE to generate a reference image: "${customCharacter.trim()}". Return ONLY raw JSON, no fences: {"scenes": [{"cue": string, "prompt": string, "subject": "character"|"object", "side": "left"|"right"}]}.
 
 COMPOSITION RULE — every scene leaves ONE full side of the frame as plain, empty background (matching the studio backdrop, nothing else in it) — this space is reserved for a text panel added afterward. "side" = which side the subject occupies; the empty space is always the opposite side. Alternate sides across scenes for visual variety.
@@ -348,21 +384,27 @@ SUBJECT CHOICE — "subject": "character" when the script moment is about the ch
 Each scene "prompt" (70-110 words): if subject is "character", this is an edit instruction on the reference image — start by briefly restating the character's most distinctive, identity-critical traits (2-3 words each, drawn from the description above) in one short clause so identity doesn't drift during the edit, THEN describe what changes: the action/pose tied to the exact script moment, which side of the frame he's composed on, and confirm the opposite side is empty plain background. If subject is "object", this is a full prompt (generated fresh, no reference) describing that object concretely, in a clean product-photography style consistent with the rest of the video, positioned on the specified side with the opposite side empty.
 
 CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence(s) around each [SCENE: ...] cue and depict THAT EXACT claim, mechanism, or named thing — never a generic pose. MECHANICAL RULE: if the cue names specific equipment or an exercise, the prompt MUST explicitly describe it being held/used/visible — a scene about a barbell with no barbell in the prompt is wrong. These are STATIC IMAGES, not video — never describe motion or camera movement. Never ask for text/words/labels in the image. Never describe a multi-panel or side-by-side comparison within one image — that's what the side/subject split above is for. Ready to paste directly into an image tool.`
-        : `You extract every [SCENE: ...] cue from a fitness video script and prepare AI image-generation prompts for a character named FLEX. Return ONLY raw JSON, no fences: {"basePrompt": string, "scenes": [{"cue": string, "prompt": string, "focus": string, "tip": string, "subject": "flex"|"object", "side": "left"|"right"}]}. basePrompt describes FLEX in this EXACT style, used ONCE to generate a single reference image: a photorealistic CGI android fitness coach — reflective dark helmet head with a subtle glowing cyan dot/chevron visor pattern where the eyes would be, no visible human face. Athletic build in a sleek black performance tech-hoodie with a thin glowing cyan line running down the center zip, black joggers, black-and-white athletic sneakers. Clean, polished product-render quality — sharp reflections, realistic fabric and material detail, NOT a flat illustration, NOT a cartoon. Background: alone on a bright, clean white-to-light-grey studio backdrop with faint geometric tech linework — minimal, uncluttered, premium product photography. Even, soft studio lighting with a subtle cyan rim-light. basePrompt itself should be 70-110 words, concrete about build, materials, and this exact photoreal CGI style — not vague.
+        : `You extract every [SCENE: ...] cue from a fitness video script and prepare AI image-generation prompts for a character named FLEX. Return ONLY raw JSON, no fences: {"basePrompt": string, "scenes": [{"cue": string, "prompt": string, "focus": string, "tip": string, "expression": string, "subject": "flex"|"object", "side": "left"|"right"}]}. basePrompt describes FLEX in this EXACT style, used ONCE to generate a single reference image: a photorealistic CGI android fitness coach — reflective dark helmet head with a subtle glowing cyan dot/chevron visor pattern where the eyes would be, no visible human face. Athletic build in a sleek black performance tech-hoodie with a thin glowing cyan line running down the center zip, black joggers, black-and-white athletic sneakers. Clean, polished product-render quality — sharp reflections, realistic fabric and material detail, NOT a flat illustration, NOT a cartoon. Background: alone on a bright, clean white-to-light-grey studio backdrop with faint geometric tech linework — minimal, uncluttered, premium product photography. Even, soft studio lighting with a subtle cyan rim-light. basePrompt itself should be 70-110 words, concrete about build, materials, and this exact photoreal CGI style — not vague.
 
 COMPOSITION RULE — every scene leaves ONE full side of the frame as plain, empty background (matching the studio backdrop, nothing else in it, no character or object bleeding into it) — this space is reserved for a text info panel added afterward. "side" = which side the subject (FLEX or the object) occupies in that scene; the empty reserved space is always the opposite side. Alternate sides across scenes for visual variety unless the content strongly favors one framing.
 
 SUBJECT CHOICE — "subject": "flex" when the script moment is about FLEX performing an action or exercise; "object" when the script names a specific concrete thing (a calendar, a plate of food, a supplement bottle, a specific piece of equipment on its own) that would be a clearer, more literal visual than FLEX standing there — in that case the image features THAT OBJECT prominently instead of FLEX, rendered in the same clean CGI product-photography style, same lighting, same studio background, same side-composition rule. Ground this choice in the literal noun the script uses — if it says "calendar", show a calendar; if it's about food, show the actual food. Don't force FLEX into every scene if the script is actually talking about something else.
 
-"focus" = the single muscle group or topic that scene's script segment is actually about (e.g. "Legs", "Chest", "Nutrition", "Schedule") — used for a soft cyan glow highlight when subject is "flex" (on the relevant body part), or omitted/left empty when subject is "object". "tip" = a short (max 8 words) genuine paraphrase of the specific point the script makes at that moment — never invent numbers, sets, reps, or stats not actually in the script; keep it qualitative if the script gives no number.
+"focus" = the single muscle group or topic that scene's script segment is actually about (e.g. "Legs", "Chest", "Nutrition", "Schedule") — used for a soft cyan glow highlight when subject is "flex" (on the relevant body part), or omitted/left empty when subject is "object". "tip" = a short (max 8 words) genuine paraphrase of the specific point the script makes at that moment — never invent numbers, sets, reps, or stats not actually in the script; keep it qualitative if the script gives no number. "expression" = a short phrase describing FLEX's visor/eye LED pattern for that moment's mood — his only way to show emotion, since he has no human face. Vary it to match the tone of that script segment: e.g. "confident upward smile-curve pattern", "focused determined straight chevron", "playful asymmetric wink pattern", "thinking square dot-grid pattern", "surprised wide-arc pattern".
 
-Each scene "prompt" (70-110 words): if subject is "flex", this is an edit instruction on the FLEX reference image — start by briefly restating his invariant, unchanging traits in one short clause (reflective dark helmet with the glowing cyan visor pattern, no human face, black tech-hoodie with the cyan zip-line) so his identity doesn't drift during the edit, THEN describe what changes: the action/pose/equipment tied to the exact script moment, which side of frame he's composed on, the cyan glow on the "focus" body part, and confirm the opposite side stays empty plain background. Do not redescribe secondary details (exact fabric texture, background linework) — just the identity-critical traits plus the change. If subject is "object", this is a full prompt (no reference image used) describing that object concretely and specifically, styled to match FLEX's clean product-photography aesthetic (same lighting, same plain backdrop, subtle cyan accent allowed), positioned on the specified side, opposite side empty.
+Each scene "prompt" (70-110 words): if subject is "flex", this is an edit instruction on the FLEX reference image — start by briefly restating his invariant, unchanging traits in one short clause (reflective dark helmet, no human face, black tech-hoodie with the cyan zip-line) so his identity doesn't drift during the edit, but describe his visor/eye pattern as "expression" instead of the default, THEN describe what changes: the action/pose/equipment tied to the exact script moment, which side of frame he's composed on, the cyan glow on the "focus" body part, and confirm the opposite side stays empty plain background. Do not redescribe secondary details (exact fabric texture, background linework) — just the identity-critical traits, the expression, plus the change. If subject is "object", this is a full prompt (no reference image used) describing that object concretely and specifically, styled to match FLEX's clean product-photography aesthetic (same lighting, same plain backdrop, subtle cyan accent allowed), positioned on the specified side, opposite side empty.
 
 CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence(s) around each [SCENE: ...] cue and depict THAT EXACT claim, mechanism, or named thing — never a generic pose. MECHANICAL RULE, NO EXCEPTIONS: if the cue, tip, or script segment names specific equipment (bar, barbell, bench, dumbbell, plate, machine, band, etc.) or a specific exercise, the "prompt" MUST explicitly describe FLEX gripping/holding/positioned on that exact equipment, visible in frame — a scene whose tip says "the bar grinds to a halt" but whose prompt doesn't mention a bar is WRONG, fix it before responding. Never use the word "gym" or describe gym flooring/walls/racks — only the specific item itself, isolated on the plain backdrop. These are STATIC IMAGES, not video — never describe motion, slow-motion, or camera movement. Never ask for text/words/labels in the image (rendered unreliably). Never describe a multi-panel or side-by-side comparison within one image — that's what the side/subject split above is for. Ready to paste directly into an image tool.`;
       const user = `Title: ${selectedConcept?.title || ""}\nNiche: ${niche}\nScript:\n${script}`;
       const { text } = await askClaude(user, sys, { maxTokens: 6000 });
       const parsed = extractJson(text);
-      setVisuals(hasCustom ? { basePrompt: customCharacter.trim(), scenes: parsed.scenes || parsed } : parsed);
+      setVisuals(
+        hasFlexRef
+          ? { basePrompt: "(using your uploaded reference image — no description needed)", scenes: parsed.scenes || parsed }
+          : hasCustom
+          ? { basePrompt: customCharacter.trim(), scenes: parsed.scenes || parsed }
+          : parsed
+      );
     } catch (e) {
       setErrVisuals(e.message || "Something went wrong.");
     } finally {
@@ -433,13 +475,15 @@ CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence
 
   async function genAllImages() {
     if (!visuals) return;
-    const items = [
-      { key: "base", prompt: visuals.basePrompt, subject: "flex" },
-      ...(visuals.scenes || []).map((s, i) => ({ key: `scene-${i}`, prompt: s.prompt, subject: s.subject || "flex" })),
-    ];
+    const items = flexReference
+      ? (visuals.scenes || []).map((s, i) => ({ key: `scene-${i}`, prompt: s.prompt, subject: s.subject || "flex" }))
+      : [
+          { key: "base", prompt: visuals.basePrompt, subject: "flex" },
+          ...(visuals.scenes || []).map((s, i) => ({ key: `scene-${i}`, prompt: s.prompt, subject: s.subject || "flex" })),
+        ];
     setLoadingAll(true);
     let succeeded = 0;
-    let baseImageData = null;
+    let baseImageData = flexReference || null;
     for (let i = 0; i < items.length; i++) {
       setAllProgress(`Generating ${i + 1} of ${items.length}…`);
       const isBase = items[i].key === "base";
@@ -561,12 +605,19 @@ CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence
     setErrAssemble("");
     setAssembledVideoUrl(null);
 
+    const sceneWeights = getSceneWordWeights();
     const orderedScenes = (visuals?.scenes || [])
-      .map((s, i) => ({ key: `scene-${i}`, focus: s.focus || "", tip: s.tip || "", side: s.side || "left" }))
-      .filter((s) => genImages[s.key]);
-    const orderedKeys = orderedScenes.map((s) => s.key);
-    if (orderedKeys.length === 0) {
-      setErrAssemble("Generate at least one scene image in CH.03 first.");
+      .map((s, i) => ({
+        key: `scene-${i}`,
+        focus: s.focus || "",
+        tip: s.tip || "",
+        side: s.side || "left",
+        weight: sceneWeights[i] || 10,
+        kind: sceneVideos[`scene-${i}`] ? "video" : "image",
+      }))
+      .filter((s) => sceneVideos[s.key] || genImages[s.key]);
+    if (orderedScenes.length === 0) {
+      setErrAssemble("Generate at least one scene image (or upload a clip) in CH.03 first.");
       return;
     }
     if (!audioUrl) {
@@ -575,17 +626,27 @@ CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence
     }
 
     setAssembling(true);
-    setAssembleProgress("Loading images…");
+    setAssembleProgress("Loading media…");
 
     try {
-      const imgs = await Promise.all(
-        orderedKeys.map(
-          (k) =>
+      const media = await Promise.all(
+        orderedScenes.map(
+          (s) =>
             new Promise((resolve, reject) => {
-              const img = new Image();
-              img.onload = () => resolve(img);
-              img.onerror = () => reject(new Error("Couldn't load one of the generated images."));
-              img.src = genImages[k];
+              if (s.kind === "video") {
+                const vid = document.createElement("video");
+                vid.src = sceneVideos[s.key].url;
+                vid.muted = true;
+                vid.playsInline = true;
+                vid.preload = "auto";
+                vid.onloadedmetadata = () => resolve({ ...s, el: vid });
+                vid.onerror = () => reject(new Error("Couldn't load the uploaded clip for " + s.key + "."));
+              } else {
+                const img = new Image();
+                img.onload = () => resolve({ ...s, el: img });
+                img.onerror = () => reject(new Error("Couldn't load the generated image for " + s.key + "."));
+                img.src = genImages[s.key];
+              }
             })
         )
       );
@@ -608,8 +669,17 @@ CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence
       });
 
       const duration = audio.duration;
-      const perImage = duration / imgs.length;
-      const transitionTime = Math.min(0.5, perImage * 0.3);
+
+      // Proportional timing: each scene gets screen time based on how many
+      // script words it actually covers, not an even split.
+      const totalWeight = media.reduce((a, m) => a + m.weight, 0) || media.length;
+      let acc = 0;
+      const segments = media.map((m) => {
+        const segDur = duration * (m.weight / totalWeight);
+        const seg = { ...m, start: acc, dur: segDur };
+        acc += segDur;
+        return seg;
+      });
 
       const canvas = canvasRef.current;
       const cw = 1024;
@@ -618,9 +688,9 @@ CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence
       canvas.height = ch;
       const ctx = canvas.getContext("2d");
 
-      // Alternate pan direction per image so it's not a static center-zoom
-      // every time — subtle left/right/up/down drift alongside the zoom.
-      const panDirs = imgs.map((_, i) => [
+      // Alternate pan direction per image scene (video scenes already have
+      // their own motion, so they skip the synthetic zoom entirely).
+      const panDirs = segments.map((_, i) => [
         [1, 0], [-1, 0], [0, 1], [0, -1],
       ][i % 4]);
 
@@ -671,57 +741,83 @@ CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence
         return lines;
       }
 
+      function findIdx(t) {
+        for (let i = 0; i < segments.length; i++) {
+          if (t < segments[i].start + segments[i].dur || i === segments.length - 1) return i;
+        }
+        return segments.length - 1;
+      }
+
+      let lastPlayingIdx = -1;
+
       function drawFrame() {
         const t = Math.min(audio.currentTime, duration);
-        const idx = Math.min(imgs.length - 1, Math.floor(t / perImage));
-        const localT = t - idx * perImage;
-        const img = imgs[idx];
-        const nextImg = imgs[idx + 1];
+        const idx = findIdx(t);
+        const seg = segments[idx];
+        const localT = t - seg.start;
+        const transitionTime = Math.min(0.5, seg.dur * 0.3);
         const [px, py] = panDirs[idx];
+
+        // Start playing a video segment's clip the moment we enter it;
+        // once it ends it just naturally holds on its last frame.
+        if (idx !== lastPlayingIdx) {
+          if (segments[lastPlayingIdx] && segments[lastPlayingIdx].kind === "video") {
+            segments[lastPlayingIdx].el.pause();
+          }
+          if (seg.kind === "video" && seg.el.paused) {
+            seg.el.currentTime = 0;
+            seg.el.play().catch(() => {});
+          }
+          lastPlayingIdx = idx;
+        }
 
         ctx.clearRect(0, 0, cw, ch);
 
-        const drawImg = (image, alpha, dirX, dirY, progress) => {
-          const zoom = 1 + 0.1 * progress;
-          const baseScale = Math.max(cw / image.width, ch / image.height);
+        const drawMedia = (m, alpha, dirX, dirY, progress) => {
+          const el = m.el;
+          const naturalW = el.videoWidth || el.width;
+          const naturalH = el.videoHeight || el.height;
+          // Video clips keep their own motion — no synthetic zoom, just a
+          // steady cover-fit frame. Images still get the subtle pan/zoom.
+          const zoom = m.kind === "video" ? 1 : 1 + 0.1 * progress;
+          const baseScale = Math.max(cw / naturalW, ch / naturalH);
           const scale = baseScale * zoom;
-          const w = image.width * scale;
-          const h = image.height * scale;
-          // pan drift capped so it never reveals empty canvas edges
+          const w = naturalW * scale;
+          const h = naturalH * scale;
           const maxDriftX = Math.max(0, (w - cw) / 2);
           const maxDriftY = Math.max(0, (h - ch) / 2);
-          const driftX = dirX * maxDriftX * 0.6 * progress;
-          const driftY = dirY * maxDriftY * 0.6 * progress;
+          const driftX = m.kind === "video" ? 0 : dirX * maxDriftX * 0.6 * progress;
+          const driftY = m.kind === "video" ? 0 : dirY * maxDriftY * 0.6 * progress;
           ctx.save();
           ctx.globalAlpha = alpha;
-          ctx.drawImage(image, (cw - w) / 2 - driftX, (ch - h) / 2 - driftY, w, h);
+          ctx.drawImage(el, (cw - w) / 2 - driftX, (ch - h) / 2 - driftY, w, h);
           ctx.restore();
         };
 
-        drawImg(img, 1, px, py, localT / perImage);
-        if (nextImg && localT > perImage - transitionTime) {
-          const fadeT = (localT - (perImage - transitionTime)) / transitionTime;
+        drawMedia(seg, 1, px, py, localT / seg.dur);
+        const nextSeg = segments[idx + 1];
+        if (nextSeg && localT > seg.dur - transitionTime) {
+          const fadeT = (localT - (seg.dur - transitionTime)) / transitionTime;
           const [npx, npy] = panDirs[idx + 1];
-          drawImg(nextImg, fadeT, npx, npy, 0);
+          drawMedia(nextSeg, fadeT, npx, npy, 0);
         }
 
         // HUD info panel — code-drawn (never AI-rendered) so the text is
         // always accurate and legible. Content is the real focus/tip pulled
         // from the script for this scene, not invented stats.
-        const scene = orderedScenes[idx];
-        if (scene && (scene.focus || scene.tip)) {
+        if (seg.focus || seg.tip) {
           const marginSide = 40;
           const panelW = cw * 0.46;
           const pad = 26;
 
           ctx.font = "600 28px Arial, sans-serif";
-          const tipLines = scene.tip ? wrapText(scene.tip.toUpperCase(), panelW - pad * 2) : [];
+          const tipLines = seg.tip ? wrapText(seg.tip.toUpperCase(), panelW - pad * 2) : [];
           const logoSize = 44;
           const headerH = logoImg ? logoSize + 16 : 0;
-          const focusH = scene.focus ? 42 : 0;
+          const focusH = seg.focus ? 42 : 0;
           const tipH = tipLines.length * 34;
           const panelH = pad * 2 + headerH + focusH + tipH + (tipLines.length ? 10 : 0);
-          const panelX = scene.side === "left" ? cw - panelW - marginSide : marginSide;
+          const panelX = seg.side === "left" ? cw - panelW - marginSide : marginSide;
           const panelY = (ch - panelH) / 2;
 
           ctx.save();
@@ -745,12 +841,12 @@ CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence
             cursorY += headerH;
           }
 
-          if (scene.focus) {
+          if (seg.focus) {
             ctx.font = "700 28px Arial, sans-serif";
             ctx.fillStyle = "#2DE5E0";
             ctx.textAlign = "left";
             ctx.textBaseline = "top";
-            ctx.fillText(("FOCUS: " + scene.focus).toUpperCase(), panelX + pad, cursorY, panelW - pad * 2);
+            ctx.fillText(("FOCUS: " + seg.focus).toUpperCase(), panelX + pad, cursorY, panelW - pad * 2);
             cursorY += focusH;
           }
 
@@ -1152,6 +1248,52 @@ CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence
                   Each scene composes FLEX (or a relevant object your script names, like food or a calendar) on one side, with the info panel in the empty space on the other — pulling real focus/tip content from your script, never invented stats. Paste your own character description below to override FLEX entirely.
                 </p>
 
+                <div className="rounded-lg p-3 mb-4" style={{ background: C.bg, border: `1px solid ${C.tape}` }}>
+                  <label className="f-mono text-[11px] block mb-1.5" style={{ color: C.tape }}>FLEX REFERENCE IMAGE (optional, recommended)</label>
+                  <p className="text-[11px] mb-2" style={{ color: C.boneDim }}>
+                    Upload an image of exactly what FLEX should look like — it replaces the AI-generated base and every scene edits from it directly, instead of reinterpreting him from text each time.
+                  </p>
+                  <div className="flex items-center gap-3">
+                    {flexReference && (
+                      <img src={flexReference} alt="FLEX reference" className="rounded" style={{ width: 56, height: 56, objectFit: "cover", background: C.panel, border: `1px solid ${C.line}` }} />
+                    )}
+                    <label className="f-mono text-xs px-3 py-2 rounded-lg cursor-pointer" style={{ background: C.panel, color: C.boneDim, border: `1px solid ${C.line}` }}>
+                      {flexReference ? "REPLACE" : "UPLOAD REFERENCE"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = () => {
+                            setFlexReference(reader.result);
+                            setGenImages((prev) => ({ ...prev, base: reader.result }));
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                      />
+                    </label>
+                    {flexReference && (
+                      <button
+                        onClick={() => {
+                          setFlexReference(null);
+                          setGenImages((prev) => {
+                            const next = { ...prev };
+                            delete next.base;
+                            return next;
+                          });
+                        }}
+                        className="f-mono text-xs px-2 py-2"
+                        style={{ color: C.rec }}
+                      >
+                        REMOVE
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 <label className="f-mono text-[11px] block mb-1" style={{ color: C.tape }}>CUSTOM CHARACTER (optional)</label>
                 <textarea
                   value={customCharacter}
@@ -1187,15 +1329,19 @@ CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence
                         <CopyBtn text={visuals.basePrompt} />
                       </div>
                       <p className="text-xs mb-2" style={{ color: C.bone }}>{visuals.basePrompt}</p>
-                      <button
-                        onClick={() => genImage("base", visuals.basePrompt)}
-                        disabled={loadingImages.base}
-                        className="f-mono flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-opacity"
-                        style={{ background: C.tape, color: "#0B0D0F", opacity: loadingImages.base ? 0.5 : 1 }}
-                      >
-                        {loadingImages.base ? <Loader2 size={12} className="animate-spin" /> : <ImageIcon size={12} />}
-                        {loadingImages.base ? "GENERATING…" : genImages.base ? "REGENERATE IMAGE" : "GENERATE IMAGE"}
-                      </button>
+                      {flexReference ? (
+                        <p className="f-mono text-[11px]" style={{ color: C.tape }}>Using your uploaded reference image instead — remove it above to AI-generate this.</p>
+                      ) : (
+                        <button
+                          onClick={() => genImage("base", visuals.basePrompt)}
+                          disabled={loadingImages.base}
+                          className="f-mono flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-opacity"
+                          style={{ background: C.tape, color: "#0B0D0F", opacity: loadingImages.base ? 0.5 : 1 }}
+                        >
+                          {loadingImages.base ? <Loader2 size={12} className="animate-spin" /> : <ImageIcon size={12} />}
+                          {loadingImages.base ? "GENERATING…" : genImages.base ? "REGENERATE IMAGE" : "GENERATE IMAGE"}
+                        </button>
+                      )}
                       {errImages.base && <p className="text-[11px] mt-1" style={{ color: C.rec }}>{errImages.base}</p>}
                       {genImages.base && (
                         <img src={genImages.base} alt="" className="mt-2 rounded-lg w-full" style={{ border: `1px solid ${C.line}` }} />
@@ -1203,19 +1349,26 @@ CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence
                     </div>
                     {visuals.scenes?.map((s, i) => {
                       const key = `scene-${i}`;
+                      const weight = sceneWordWeights[i] || 0;
+                      const estSeconds = Math.round((weight / totalSceneWeight) * estimatedTotalSeconds);
                       return (
                         <div key={i} className="rounded-lg p-3" style={{ background: C.bg, border: `1px solid ${C.line}` }}>
                           <div className="flex justify-between items-center mb-1">
-                            <span className="f-mono text-[11px]" style={{ color: C.boneDim }}>SCENE {String(i + 1).padStart(2, "0")}</span>
+                            <span className="f-mono text-[11px]" style={{ color: C.boneDim }}>
+                              SCENE {String(i + 1).padStart(2, "0")} <span style={{ color: C.tape }}>· ~{estSeconds}s</span>
+                            </span>
                             <CopyBtn text={s.prompt} />
                           </div>
                           <p className="text-[11px] italic mb-1" style={{ color: C.boneDim }}>{s.cue}</p>
                           {(s.focus || s.tip) && (
-                            <p className="text-[11px] mb-1.5" style={{ color: C.tape }}>
+                            <p className="text-[11px] mb-1" style={{ color: C.tape }}>
                               {s.focus && <span className="f-mono">FOCUS: {s.focus}</span>}
                               {s.focus && s.tip && "  ·  "}
                               {s.tip}
                             </p>
+                          )}
+                          {s.expression && (
+                            <p className="text-[11px] italic mb-1.5" style={{ color: C.boneDim }}>Expression: {s.expression}</p>
                           )}
                           <p className="text-xs mb-2" style={{ color: C.bone }}>{s.prompt}</p>
                           <button
@@ -1259,6 +1412,41 @@ CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence
                               </p>
                             </div>
                           )}
+
+                          <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${C.line}` }}>
+                            <label className="f-mono text-[11px] block mb-1.5" style={{ color: C.tape }}>OR — DROP IN A REAL VIDEO CLIP</label>
+                            <p className="text-[10px] mb-2" style={{ color: C.boneDim }}>
+                              Generate this scene's prompt as a clip in Google Flow (or similar), then upload it here — the stitcher will use the real clip for this scene instead of the static image.
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <label className="f-mono text-xs px-3 py-1.5 rounded-lg cursor-pointer" style={{ background: C.panel, color: C.boneDim, border: `1px solid ${C.line}` }}>
+                                {sceneVideos[key] ? "REPLACE CLIP" : "UPLOAD CLIP"}
+                                <input
+                                  type="file"
+                                  accept="video/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    const url = URL.createObjectURL(file);
+                                    setSceneVideos((prev) => ({ ...prev, [key]: { url, name: file.name } }));
+                                  }}
+                                />
+                              </label>
+                              {sceneVideos[key] && (
+                                <button
+                                  onClick={() => setSceneVideos((prev) => { const next = { ...prev }; delete next[key]; return next; })}
+                                  className="f-mono text-xs px-2 py-1.5"
+                                  style={{ color: C.rec }}
+                                >
+                                  REMOVE
+                                </button>
+                              )}
+                            </div>
+                            {sceneVideos[key] && (
+                              <video src={sceneVideos[key].url} controls muted className="w-full rounded-lg mt-2" style={{ border: `1px solid ${C.green}` }} />
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -1379,7 +1567,7 @@ CRITICAL — GROUND EVERY SCENE IN THE ACTUAL SCRIPT: read the specific sentence
                   <div className="mt-5 pt-4" style={{ borderTop: `1px solid ${C.line}` }}>
                     <span className="f-mono text-[11px] block mb-2" style={{ color: C.tape }}>ASSEMBLE VIDEO (BETA)</span>
                     <p className="text-xs mb-3" style={{ color: C.boneDim }}>
-                      Stitches your generated scene images from CH.03 with this voiceover — pan + zoom transitions, timed to the audio length. Runs in your browser, works best in Chrome or Firefox on desktop. Stay on this screen while it processes. More scene images = more variety, so generate as many as you can in CH.03 first.
+                      Each scene's screen time is proportional to how much script it actually covers — not an even split. Scenes with an uploaded clip (CH.03) play the real video instead of the pan/zoom treatment. Runs in your browser, works best in Chrome or Firefox on desktop. Stay on this screen while it processes.
                     </p>
                     <PrimaryButton onClick={assembleVideo} loading={assembling} icon={Film}>
                       STITCH VIDEO
